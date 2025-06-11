@@ -3,6 +3,7 @@
 # Build stage
 FROM oven/bun:1.1.9-alpine AS builder
 WORKDIR /app
+RUN apk add --no-cache git python3 make g++
 COPY package.json bun.lockb ./
 RUN bun install
 COPY . .
