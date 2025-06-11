@@ -1,16 +1,34 @@
 ---
-
+import TopBar from "@/components/topbar";
+import SideBar from "../components/sidebar";
+import "../styles/global.css";
+import Content from "@/components/content";
+import { conversations } from "@/util/store";
+import StoreManager from "@/components/StoreManager";
 ---
 
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap"
+			rel="stylesheet"
+		/>
 		<meta name="viewport" content="width=device-width" />
 		<meta name="generator" content={Astro.generator} />
 		<title>Astro</title>
 	</head>
-	<body>
-		<h1>Astro</h1>
+	<body class="w-full p-2 h-full">
+		<div class="w-full h-full gap-2 flex">
+			<StoreManager client:load/>
+			<SideBar client:load/>
+			<div class="flex-1 flex gap-2 flex-col">
+				<TopBar client:load/>
+				<Content client:load/>
+			</div>
+		</div>
 	</body>
 </html>
