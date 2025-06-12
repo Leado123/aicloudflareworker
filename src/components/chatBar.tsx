@@ -1,4 +1,4 @@
-import { Conversation, conversations, currentConversation, currentConversationId, conversationEmpty } from "@/util/store";
+import { Conversation, conversations, currentConversation, currentConversationId, conversationEmpty, updateConversation, createNewConversation, generateTitleFromMessage } from "@/util/store";
 import { Input } from "./ui/input";
 import { useStore } from "@nanostores/react";
 import { motion } from "framer-motion";
@@ -13,39 +13,49 @@ export default function ChatBar() {
     const $currentConversation = useStore(currentConversation);
     const $conversationEmpty = useStore(conversationEmpty);
 
-    const [inputValue, setInputValue] = useState("");
-
-    const requestChatResponse = async () => {
-        if (!$currentConversation || !inputValue.trim()) {
-            console.log("No current conversation or input is empty");
-            if (!$currentConversation) {
-                console.log("No current conversation available.");
-            } else if (!inputValue.trim()) {
-                console.log("Input is empty.");
-            }
+    const [inputValue, setInputValue] = useState("");    const handleNewConversation = () => {
+        createNewConversation("New Chat");
+        setInputValue("");
+    };const requestChatResponse = async () => {
+        if (!inputValue.trim()) {
+            console.log("Input is empty.");
             return;
         }
 
         console.log("Sending user message:", inputValue.trim()); // Log user message
         console.log("Input value:", inputValue); // Log the current input value
-        console.log("Current conversation:", $currentConversation); // Log the current conversation object
+
+        // If no current conversation exists, create a new one
+        let conversationId = currentConversationId.get();
+        let conversation = $currentConversation;
+        
+        if (!conversation || !conversationId) {
+            console.log("No current conversation available, creating new one.");
+            // Use the first message as the title
+            const title = generateTitleFromMessage(inputValue.trim());
+            conversationId = createNewConversation(title);
+            // Get the newly created conversation
+            conversation = conversations.get().find(c => c.id === conversationId) || null;
+            if (!conversation) {
+                console.error("Failed to create or find new conversation.");
+                return;
+            }
+        }
+
+        console.log("Current conversation:", conversation); // Log the current conversation object
+
+        // Check if this is the first message in an existing conversation and update title if needed
+        const isFirstMessage = conversation.messages.length === 0;
+        if (isFirstMessage && conversation.title === "New Chat") {
+            const title = generateTitleFromMessage(inputValue.trim());
+            updateConversation(conversationId, { title });
+        }
 
         // Add the user's message to the current conversation
         const userMessage: CoreMessage = { role: "user", content: inputValue.trim() };
-        const updatedMessages = [...$currentConversation.messages, userMessage];
+        const updatedMessages = [...conversation.messages, userMessage];
 
-        // Find and update the conversation manually within the conversations atom
-        const conversationId = currentConversationId.get();
-        if (!conversationId) {
-            console.error("No current conversation ID available.");
-            return;
-        }
-
-        conversations.set(
-            conversations.get().map((conv) =>
-                conv.id === conversationId ? { ...conv, messages: updatedMessages } : conv
-            )
-        );
+        updateConversation(conversationId, { messages: updatedMessages });
 
         // Clear the input field
         setInputValue("");
@@ -56,11 +66,7 @@ export default function ChatBar() {
             const streamingMessages: CoreMessage[] = [...updatedMessages, aiMessage];
             
             // Update the conversation with the empty AI message to show streaming placeholder
-            conversations.set(
-                conversations.get().map((conv) =>
-                    conv.id === conversationId ? { ...conv, messages: streamingMessages } : conv
-                )
-            );
+            updateConversation(conversationId, { messages: streamingMessages });
 
             // Stream the AI response with real-time updates
             let fullResponse = "";
@@ -69,11 +75,7 @@ export default function ChatBar() {
                 
                 // Update the AI message content in real-time
                 const updatedStreamingMessages: CoreMessage[] = [...updatedMessages, { role: "assistant", content: fullResponse }];
-                conversations.set(
-                    conversations.get().map((conv) =>
-                        conv.id === conversationId ? { ...conv, messages: updatedStreamingMessages } : conv
-                    )
-                );
+                updateConversation(conversationId, { messages: updatedStreamingMessages });
             });
 
             console.log("AI response completed:", fullResponse);
@@ -81,11 +83,7 @@ export default function ChatBar() {
             console.error("Failed to fetch AI response:", error);
             
             // Remove the empty AI message if there was an error
-            conversations.set(
-                conversations.get().map((conv) =>
-                    conv.id === conversationId ? { ...conv, messages: updatedMessages } : conv
-                )
-            );
+            updateConversation(conversationId, { messages: updatedMessages });
         }
     };
 
@@ -106,9 +104,12 @@ export default function ChatBar() {
                             requestChatResponse();
                         }
                     }}
-                />
-                <div className="flex text-gray-600 gap-2">
-                    <button className="cursor-pointer p-2 rounded-full">
+                />                <div className="flex text-gray-600 gap-2">
+                    <button 
+                        className="cursor-pointer p-2 rounded-full hover:bg-gray-100"
+                        onClick={handleNewConversation}
+                        title="Start new conversation"
+                    >
                         <LucidePlus />
                     </button>
                     <div className="flex-1"></div>

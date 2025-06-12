@@ -9,8 +9,7 @@ export default function Messages() {
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    };
-
+    };    
     useEffect(() => {
     }, [$currentConversation?.messages]);
 
@@ -29,7 +28,7 @@ export default function Messages() {
                         <div 
                             className={`p-3 ${
                                 message.role === 'user' 
-                                    ? 'bg-purple-100 rounded-2xl max-w-2/3 rounded-tr-md ml-auto' 
+                                    ? 'bg-purple-100 rounded-3xl max-w-2/3 rounded-tr-md ml-auto' 
                                     : 'text-gray-900'
                             }`}
                         >

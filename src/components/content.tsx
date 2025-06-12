@@ -2,6 +2,7 @@ import { contentMode } from "@/util/store";
 import { useStore } from "@nanostores/react";
 import ChatMode from "./chatMode";
 import GradientText from "./gradienttext";
+import CraftingTableMode from "./craftingTableMode";
 
 export default function Content() {
 
@@ -17,10 +18,7 @@ export default function Content() {
                     <ChatMode />
                 )}
                 {$contentMode === "craftingTable" && (
-                    <div className="p-4">
-                        <h1 className="text-xl font-bold">Crafting Table</h1>
-                        {/* Crafting Table component goes here */}
-                    </div>
+                    <CraftingTableMode />
                 )}
                 {$contentMode === "write" && (
                     <div className="p-4">

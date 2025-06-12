@@ -20,15 +20,15 @@ import StoreManager from "@/components/StoreManager";
 		<meta name="viewport" content="width=device-width" />
 		<meta name="generator" content={Astro.generator} />
 		<title>Astro</title>
-	</head>
-	<body class="w-full p-2 h-full">
-		<div class="w-full h-full gap-2 flex">
-			<StoreManager client:load/>
-			<SideBar client:load/>
-			<div class="flex-1 flex gap-2 flex-col">
-				<TopBar client:load/>
-				<Content client:load/>
+	</head>	<body class="w-full p-2 h-full">
+		<StoreManager client:load>
+			<div class="w-full h-full gap-2 flex">
+				<SideBar client:load/>
+				<div class="flex-1 flex gap-2 flex-col">
+					<TopBar client:load/>
+					<Content client:load/>
+				</div>
 			</div>
-		</div>
+		</StoreManager>
 	</body>
 </html>
