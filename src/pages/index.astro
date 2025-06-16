@@ -11,22 +11,21 @@ import StoreManager from "@/components/StoreManager";
 	<head>
 		<meta charset="utf-8" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="preconnect" href="https://fonts.googleapis.com" />
-		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-		<link
-			href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap"
-			rel="stylesheet"
-		/>
+
+		<link rel="stylesheet" href="https://use.typekit.net/jbl5rvj.css">
+
+
 		<meta name="viewport" content="width=device-width" />
 		<meta name="generator" content={Astro.generator} />
 		<title>Astro</title>
-	</head>	<body class="w-full p-2 h-full">
+	</head>
+	<body class="w-full p-2 h-full">
 		<StoreManager client:load>
 			<div class="w-full h-full gap-2 flex">
-				<SideBar client:load/>
+				<SideBar client:visible />
 				<div class="flex-1 flex gap-2 flex-col">
-					<TopBar client:load/>
-					<Content client:load/>
+					<TopBar client:only />
+					<Content client:only />
 				</div>
 			</div>
 		</StoreManager>

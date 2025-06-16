@@ -1,0 +1,229 @@
+/* Basic editor styles */
+.tiptap {
+  outline: none;
+  padding: 1rem;
+  line-height: 1.6;
+  min-height: 100%;
+  max-width: 100%;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.tiptap :first-child {
+  margin-top: 0;
+}
+
+/* List styles - explicitly set to override Tailwind resets */
+.tiptap ul {
+  list-style-type: disc;
+  list-style-position: outside;
+  padding-left: 1.5rem;
+  margin: 1rem 0;
+}
+
+.tiptap ol {
+  list-style-type: decimal;
+  list-style-position: outside;
+  padding-left: 1.5rem;
+  margin: 1rem 0;
+}
+
+.tiptap ul ul {
+  list-style-type: circle;
+  margin: 0.5rem 0;
+}
+
+.tiptap ul ul ul {
+  list-style-type: square;
+}
+
+.tiptap ol ol {
+  list-style-type: lower-roman;
+  margin: 0.5rem 0;
+}
+
+.tiptap ol ol ol {
+  list-style-type: lower-alpha;
+}
+
+.tiptap li {
+  margin: 0.25rem 0;
+  padding-left: 0.25rem;
+}
+
+.tiptap li p {
+  margin: 0.25rem 0;
+  display: inline;
+}
+
+/* Heading styles */
+.tiptap h1, 
+.tiptap h2, 
+.tiptap h3, 
+.tiptap h4, 
+.tiptap h5, 
+.tiptap h6 {
+  line-height: 1.2;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  font-weight: bold;
+  text-wrap: pretty;
+}
+
+.tiptap h1 { 
+  font-size: 2rem; 
+  margin-top: 3rem;
+}
+
+.tiptap h2 { 
+  font-size: 1.5rem; 
+  margin-top: 2.5rem;
+}
+
+.tiptap h3 { 
+  font-size: 1.25rem; 
+}
+
+.tiptap h4 { 
+  font-size: 1.125rem; 
+}
+
+.tiptap h5, 
+.tiptap h6 { 
+  font-size: 1rem; 
+}
+
+/* Paragraph styles */
+.tiptap p {
+  margin: 1rem 0;
+}
+
+/* Strong and emphasis */
+.tiptap strong {
+  font-weight: bold;
+}
+
+.tiptap em {
+  font-style: italic;
+}
+
+/* Code and preformatted text styles */
+.tiptap code {
+  background-color: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.25rem;
+  color: #1e293b;
+  font-size: 0.875rem;
+  padding: 0.125rem 0.25rem;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+.tiptap pre {
+  background: #1e293b;
+  border-radius: 0.5rem;
+  color: #f8fafc;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  margin: 1.5rem 0;
+  padding: 1rem;
+  overflow-x: auto;
+}
+
+.tiptap pre code {
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 0.875rem;
+  padding: 0;
+}
+
+/* Blockquote styles */
+.tiptap blockquote {
+  border-left: 4px solid #e2e8f0;
+  margin: 1.5rem 0;
+  padding-left: 1rem;
+  color: #64748b;
+  font-style: italic;
+}
+
+/* Horizontal rule */
+.tiptap hr {
+  border: none;
+  border-top: 2px solid #e2e8f0;
+  margin: 2rem 0;
+}
+
+/* Hard break */
+.tiptap br {
+  display: block;
+  margin: 0.5rem 0;
+  content: "";
+}
+
+/* Strike through */
+.tiptap s,
+.tiptap del {
+  text-decoration: line-through;
+}
+
+/* Table-specific styling */
+.tiptap table {
+  border-collapse: collapse;
+  margin: 0;
+  overflow: hidden;
+  table-layout: fixed;
+  width: 100%;
+  border: 1px solid var(--gray-3); /* Add border to the table */
+}
+
+.tiptap table td,
+.tiptap table th {
+  border: 1px solid var(--gray-3);
+  box-sizing: border-box;
+  min-width: 1em;
+  padding: 6px 8px;
+  position: relative;
+  vertical-align: top;
+}
+
+.tiptap table td > *,
+.tiptap table th > * {
+  margin-bottom: 0;
+}
+
+.tiptap table th {
+  background-color: #e0f7fa; /* Light blue color for table headings */
+  font-weight: bold;
+  text-align: left;
+}
+
+.tiptap table .selectedCell:after {
+  background: var(--gray-2);
+  content: "";
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 2;
+}
+
+.tiptap table .column-resize-handle {
+  background-color: var(--purple);
+  bottom: -2px;
+  pointer-events: none;
+  position: absolute;
+  right: -2px;
+  top: 0;
+  width: 4px;
+}
+
+.tiptap .tableWrapper {
+  margin: 1.5rem 0;
+  overflow-x: auto;
+}
+
+.tiptap.resize-cursor {
+  cursor: ew-resize;
+  cursor: col-resize;
+}

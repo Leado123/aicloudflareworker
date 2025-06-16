@@ -8,7 +8,7 @@ export default function TopBar() {
     const $contentMode = useStore(contentMode);
 
     return (
-        <Tabs value={$contentMode} onValueChange={(e) => contentMode.set(e)} defaultValue="chat" className="w-full flex place-items-center ">
+        <Tabs value={$contentMode as "chat" | "craftingTable" | "write"} onValueChange={(e) => contentMode.set(e as "chat" | "craftingTable" | "write")} defaultValue={contentMode.get()} className="w-full flex place-items-center ">
             <TabsList>
                 <TabsTrigger value="chat">
                     <LucideMessageCircle /> AI Chat

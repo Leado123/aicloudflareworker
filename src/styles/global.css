@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+
 @custom-variant dark (&:is(.dark *));
 
 html, body {
@@ -9,7 +10,7 @@ html, body {
 
 
 :root {
-  font-family: 'DM Sans';
+  font-family: tt-commons-pro, sans-serif;
 }
 
 @theme inline {

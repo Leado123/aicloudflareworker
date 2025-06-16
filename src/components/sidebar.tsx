@@ -35,11 +35,12 @@ export default function SideBar() {
     };
 
     return (
-        <div className="w-64 gap-2 p-2 flex flex-col h-full">
+        <div className="w-64 p-2 flex flex-col h-full">
             <div className=" flex place-items-center justify-center rounded-lg">
-                <text className="font-bold text-xl flex-1">sharesyllabus ai</text>
+                <text className="font-semibold text-xl flex-1">Fishy Studio</text>
                 <Button
                     variant="ghost"
+                    size="icon"
                     onClick={(e) => {
                         e.preventDefault();
                         handleNewConversation();

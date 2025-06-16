@@ -1,22 +1,22 @@
 import { Conversation, conversations, currentConversation, currentConversationId, conversationEmpty, updateConversation, createNewConversation, generateTitleFromMessage } from "@/util/store";
 import { Input } from "./ui/input";
 import { useStore } from "@nanostores/react";
-import { motion } from "framer-motion";
-import { LucideArrowRight, LucidePlus } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { LucideArrowDown, LucideArrowRight, LucidePlus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { requestChatMessage, requestChatMessageStream } from "@/util/requestChatMessage";
 import type { CoreMessage } from "ai";
+import { isAtBottomAtom, scrollToBottomSignal } from "./messages";
 
 export default function ChatBar() {
-    console.log("ChatBar component loaded"); // Log component load
-
     const $currentConversation = useStore(currentConversation);
     const $conversationEmpty = useStore(conversationEmpty);
+    const $isAtBottom = useStore(isAtBottomAtom);
 
-    const [inputValue, setInputValue] = useState("");    const handleNewConversation = () => {
+    const [inputValue, setInputValue] = useState(""); const handleNewConversation = () => {
         createNewConversation("New Chat");
         setInputValue("");
-    };const requestChatResponse = async () => {
+    }; const requestChatResponse = async () => {
         if (!inputValue.trim()) {
             console.log("Input is empty.");
             return;
@@ -28,7 +28,7 @@ export default function ChatBar() {
         // If no current conversation exists, create a new one
         let conversationId = currentConversationId.get();
         let conversation = $currentConversation;
-        
+
         if (!conversation || !conversationId) {
             console.log("No current conversation available, creating new one.");
             // Use the first message as the title
@@ -64,7 +64,7 @@ export default function ChatBar() {
             // Create a placeholder AI message for streaming
             const aiMessage: CoreMessage = { role: "assistant", content: "" };
             const streamingMessages: CoreMessage[] = [...updatedMessages, aiMessage];
-            
+
             // Update the conversation with the empty AI message to show streaming placeholder
             updateConversation(conversationId, { messages: streamingMessages });
 
@@ -72,7 +72,7 @@ export default function ChatBar() {
             let fullResponse = "";
             await requestChatMessageStream(updatedMessages, (chunk) => {
                 fullResponse += chunk;
-                
+
                 // Update the AI message content in real-time
                 const updatedStreamingMessages: CoreMessage[] = [...updatedMessages, { role: "assistant", content: fullResponse }];
                 updateConversation(conversationId, { messages: updatedStreamingMessages });
@@ -81,7 +81,7 @@ export default function ChatBar() {
             console.log("AI response completed:", fullResponse);
         } catch (error) {
             console.error("Failed to fetch AI response:", error);
-            
+
             // Remove the empty AI message if there was an error
             updateConversation(conversationId, { messages: updatedMessages });
         }
@@ -92,6 +92,26 @@ export default function ChatBar() {
             layout
             className={`${$conversationEmpty ? `absolute bottom-[40%]` : `absolute bottom-0 left-0 right-0`} w-full p-2 gap-2 flex flex-col place-items-center`}
         >
+            <AnimatePresence> {/* Move above the chat bar */}
+                {!$isAtBottom ?
+                    <motion.button 
+                        className="absolute border top-[-4em] cursor-pointer p-3 rounded-full backdrop-blur-3xl hover:bg-white/20 cursor-pointer"
+                        onClick={() => {
+                            // Trigger scroll signal - Messages component will handle the actual scrolling
+                            const currentValue = scrollToBottomSignal.get();
+                            const newValue = currentValue + 1;
+                            console.log('ChatBar button clicked, signal changing from', currentValue, 'to', newValue);
+                            scrollToBottomSignal.set(newValue);
+                        }}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 10 }}
+                        title="Scroll to bottom"
+                    >
+                        <LucideArrowDown />
+                    </motion.button> : null
+                }
+            </AnimatePresence>
             <div className="md:w-4xl flex backdrop-blur-md bg-[rgba(255,255,255,0.6)] flex-col border gap-2 rounded-3xl p-2">
                 <input
                     className="outline-0 text-lg p-2 border-0 shadow-none"
@@ -104,8 +124,9 @@ export default function ChatBar() {
                             requestChatResponse();
                         }
                     }}
-                />                <div className="flex text-gray-600 gap-2">
-                    <button 
+                />
+                <div className="flex text-gray-600 gap-2">
+                    <button
                         className="cursor-pointer p-2 rounded-full hover:bg-gray-100"
                         onClick={handleNewConversation}
                         title="Start new conversation"
