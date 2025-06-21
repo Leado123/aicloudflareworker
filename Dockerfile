@@ -1,11 +1,35 @@
 # Dockerfile for an Astro SSR project with PostgreSQL
-# Build stage
+# Build stage - use the same bun version but with more build tools
 FROM oven/bun:1.1.9-alpine AS builder
 WORKDIR /app
-RUN apk add --no-cache git python3 make g++
+
+# Install comprehensive build dependencies
+RUN apk add --no-cache \
+    git \
+    python3 \
+    make \
+    g++ \
+    sqlite \
+    sqlite-dev \
+    libc6-compat \
+    linux-headers
+
+# Copy package files
 COPY package.json bun.lockb ./
-RUN bun install
+
+# Set environment variables to help with native module compilation
+ENV PYTHON=/usr/bin/python3
+ENV MAKE=/usr/bin/make
+ENV GCC=/usr/bin/gcc
+ENV GXX=/usr/bin/g++
+
+# Install dependencies with verbose logging for debugging
+RUN bun install --verbose
+
+# Copy source code
 COPY . .
+
+# Build the application
 RUN bun run build
 
 # Runtime stage with PostgreSQL
