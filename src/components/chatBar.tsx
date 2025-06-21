@@ -13,28 +13,36 @@ export default function ChatBar() {
     const $conversationEmpty = useStore(conversationEmpty);
     const $isAtBottom = useStore(isAtBottomAtom);
 
-    const [inputValue, setInputValue] = useState(""); const handleNewConversation = () => {
+    const [inputValue, setInputValue] = useState("");
+    
+    const handleNewConversation = () => {
         createNewConversation("New Chat");
         setInputValue("");
-    }; const requestChatResponse = async () => {
+    };
+    
+    const requestChatResponse = async () => {
         if (!inputValue.trim()) {
             console.log("Input is empty.");
             return;
         }
 
+        console.log("=== STARTING NEW CHAT RESPONSE ===");
         console.log("Sending user message:", inputValue.trim()); // Log user message
         console.log("Input value:", inputValue); // Log the current input value
 
-        // If no current conversation exists, create a new one
+        // Get current conversation state fresh from store
         let conversationId = currentConversationId.get();
-        let conversation = $currentConversation;
+        let conversation = currentConversation.get();
+
+        console.log("Current conversation ID:", conversationId);
+        console.log("Current conversation:", conversation);
+        console.log("Conversation has", conversation?.messages?.length || 0, "messages");
 
         if (!conversation || !conversationId) {
             console.log("No current conversation available, creating new one.");
-            // Use the first message as the title
             const title = generateTitleFromMessage(inputValue.trim());
             conversationId = createNewConversation(title);
-            // Get the newly created conversation
+            // Get the newly created conversation fresh from store
             conversation = conversations.get().find(c => c.id === conversationId) || null;
             if (!conversation) {
                 console.error("Failed to create or find new conversation.");
@@ -42,7 +50,8 @@ export default function ChatBar() {
             }
         }
 
-        console.log("Current conversation:", conversation); // Log the current conversation object
+        console.log("Using conversation:", conversation);
+        console.log("Conversation has", conversation.messages.length, "messages");
 
         // Check if this is the first message in an existing conversation and update title if needed
         const isFirstMessage = conversation.messages.length === 0;
@@ -70,15 +79,28 @@ export default function ChatBar() {
 
             // Stream the AI response with real-time updates
             let fullResponse = "";
+            console.log("Starting stream for conversation:", conversationId, "with", updatedMessages.length, "messages");
+            
             await requestChatMessageStream(updatedMessages, (chunk) => {
                 fullResponse += chunk;
+                console.log("Received chunk:", chunk, "Full response so far:", fullResponse.length, "chars");
+
+                // Get fresh conversation ID in case it changed
+                const currentConvId = currentConversationId.get();
+                if (!currentConvId || typeof currentConvId !== "string") {
+                    console.error("Invalid or missing current conversation ID:", currentConvId);
+                    return;
+                }
+
+                console.log("Using conversation ID for update:", currentConvId, "original was:", conversationId);
 
                 // Update the AI message content in real-time
                 const updatedStreamingMessages: CoreMessage[] = [...updatedMessages, { role: "assistant", content: fullResponse }];
-                updateConversation(conversationId, { messages: updatedStreamingMessages });
+                console.log("Updating conversation with", updatedStreamingMessages.length, "messages");
+                updateConversation(currentConvId, { messages: updatedStreamingMessages });
             });
 
-            console.log("AI response completed:", fullResponse);
+            console.log("AI response completed:", fullResponse.length, "characters total");
         } catch (error) {
             console.error("Failed to fetch AI response:", error);
 
@@ -93,9 +115,9 @@ export default function ChatBar() {
             className={`${$conversationEmpty ? `absolute bottom-[40%]` : `absolute bottom-0 left-0 right-0`} w-full p-2 gap-2 flex flex-col place-items-center`}
         >
             <AnimatePresence> {/* Move above the chat bar */}
-                {!$isAtBottom ?
+                {!$isAtBottom && !$conversationEmpty ?
                     <motion.button 
-                        className="absolute border top-[-4em] cursor-pointer p-3 rounded-full backdrop-blur-3xl hover:bg-white/20 cursor-pointer"
+                        className="absolute border top-[-4em] cursor-pointer p-3 rounded-full backdrop-blur-3xl hover:bg-white/20"
                         onClick={() => {
                             // Trigger scroll signal - Messages component will handle the actual scrolling
                             const currentValue = scrollToBottomSignal.get();
@@ -112,9 +134,9 @@ export default function ChatBar() {
                     </motion.button> : null
                 }
             </AnimatePresence>
-            <div className="md:w-4xl flex backdrop-blur-md bg-[rgba(255,255,255,0.6)] flex-col border gap-2 rounded-3xl p-2">
-                <input
-                    className="outline-0 text-lg p-2 border-0 shadow-none"
+            <div className="w-full max-w-4xl flex backdrop-blur-md bg-[rgba(255,255,255,0.6)] flex-col border gap-2 rounded-3xl p-2">
+                <textarea
+                    className="outline-0 text-lg p-2 border-0 shadow-none resize-none"
                     placeholder="Ask ShareSyllabus AI"
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
@@ -122,6 +144,18 @@ export default function ChatBar() {
                         if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault();
                             requestChatResponse();
+                        }
+                    }}
+                    rows={1}
+                    style={{ minHeight: "2.5em", maxHeight: "8em", overflowY: "auto" }}
+                    ref={el => {
+                        if (el) {
+                            // Auto-resize logic to mimic minRows/maxRows
+                            el.style.height = "auto";
+                            el.style.height = Math.min(
+                                Math.max(el.scrollHeight, 2.5 * 16), // 2.5em in px (assuming 16px font)
+                                8 * 16 // 8em in px
+                            ) + "px";
                         }
                     }}
                 />

@@ -15,6 +15,7 @@ import Langfuse from 'langfuse';
 import { LangfuseExporter } from "langfuse-vercel"
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
+import APIKeyManager from "@/util/apiKeyManager";
 
 
 interface Env {
@@ -34,12 +35,18 @@ export const trace = langfuse.trace({
     name: "aiapp",
 })
 
+// Initialize the API key manager
+const apiKeyManager = APIKeyManager.getInstance();
+
 
 export async function POST({ request, locals }: APIContext) {
-
+    // Get current API key from the manager
+    const currentApiKey = apiKeyManager.getCurrentApiKey();
+    
     const google = createGoogleGenerativeAI({
-        apiKey: "AIzaSyCfNQuSrU46EFKrx_RKQCdtHT2jl3AcXBQ"
+        apiKey: currentApiKey
     });
+    
     try {
         const { messages } = await request.json() as { messages: CoreMessage[] };
 
@@ -50,12 +57,14 @@ export async function POST({ request, locals }: APIContext) {
             });
         }
 
-        const messagesFp = messages.splice(0, messages.length - 1);
-        const messagesLp = messages.splice(messages.length - 1);
-        const promptMessage = { role: "system", content: generalChatPrompt.prompt }
-        const editedMessage = messagesFp.concat([promptMessage as CoreMessage], messagesLp);
-        console.log(editedMessage);
+        // Add system prompt at the beginning instead of in the middle
+        const promptMessage = { role: "system", content: generalChatPrompt.prompt } as CoreMessage;
+        const editedMessage = [promptMessage, ...messages];
+        console.log("Final messages being sent to AI:", editedMessage);
 
+        // Log API key stats
+        const keyStats = apiKeyManager.getKeyStats();
+        console.log(`API Key Stats - Total: ${keyStats.total}, Valid: ${keyStats.valid}, Invalid: ${keyStats.invalid}`);
 
         // Create a ReadableStream to stream the AI response
         let controller: ReadableStreamDefaultController;
@@ -74,20 +83,40 @@ export async function POST({ request, locals }: APIContext) {
                             },
                             input: editedMessage,
                         })
+                        
                         const { textStream } = await streamText({
                             model: google("gemini-2.0-flash"),
                             messages: editedMessage,
                         });
 
+                        let fullResponse = "";
                         for await (const textPart of textStream) {
+                            fullResponse += textPart;
+                            console.log("Streaming text part:", textPart);
                             controller.enqueue(encoder.encode(textPart));
                         }
+                        console.log("Complete AI response:", fullResponse);
+                        
+                        // Rotate to next API key after successful completion
+                        apiKeyManager.rotateToNextKey();
+                        
                         generationTrace.end({
-                            output: textStream,
+                            output: fullResponse,
                         })
                         controller.close();
                     } catch (error) {
                         console.error('Stream Error:', error);
+                        
+                        // If there's an API key related error, try rotating to next key
+                        if (error instanceof Error && 
+                            (error.message.includes('API key') || 
+                             error.message.includes('authentication') ||
+                             error.message.includes('quota') ||
+                             error.message.includes('rate limit'))) {
+                            console.log('API key error detected, rotating to next key');
+                            apiKeyManager.rotateToNextKey();
+                        }
+                        
                         controller.error(error);
                     }
                 })();

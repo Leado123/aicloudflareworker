@@ -3,6 +3,7 @@ import { useStore } from "@nanostores/react";
 import ChatMode from "./chatMode";
 import GradientText from "./gradienttext";
 import CraftingTableMode from "./craftingTableMode";
+import WritingMode from "./writingMode";
 
 export default function Content() {
 
@@ -21,10 +22,7 @@ export default function Content() {
                     <CraftingTableMode />
                 )}
                 {$contentMode === "write" && (
-                    <div className="p-4">
-                        <h1 className="text-xl font-bold">AI Essay Editor</h1>
-                        {/* AI Essay Editor component goes here */}
-                    </div>
+                    <WritingMode />
                 )}
             </div>
         </div>

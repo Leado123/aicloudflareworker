@@ -28,7 +28,7 @@ export default function ChatMode() {
                             className="absolute w-full place-items-center bottom-[60%]"
                         >
                             <LayoutGroup>
-                                <motion.p layout className="text-4xl font-bold flex place-items-center">
+                                <motion.p layout className="text-4xl flex place-items-center">
                                     <motion.span layout transition={{ type: "spring", damping: 30, stiffness: 400 }}>You can&nbsp;</motion.span>
                                     <RotatingText
                                         texts={['ask a question', 'generate Notion notes', 'make Quizlet flashcards', 'make Knowt flashcards']}
@@ -53,7 +53,7 @@ export default function ChatMode() {
                     </AnimatePresence>
                 </div>
             ) : (
-                <div className="flex-1 overflow-y-scroll place-items-center">
+                <div className="flex-1 overflow-y-auto overflow-x-hidden w-full">
                     <Messages />
                 </div>
             )}

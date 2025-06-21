@@ -6,11 +6,17 @@
 
 html, body {
   height: 100%;
+  
 }
 
 
 :root {
   font-family: tt-commons-pro, sans-serif;
+  
+}
+
+code, kbd, pre, samp {
+font-family: cartograph-cf, monospace;
 }
 
 @theme inline {
@@ -127,4 +133,33 @@ html, body {
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Prevent Radix UI Dialog from interfering with page layout */
+body[data-scroll-locked] {
+  padding-right: 0 !important;
+  margin-right: 0 !important;
+  /* Prevent any padding compensation that Radix might add */
+  box-sizing: border-box !important;
+}
+
+/* Ensure consistent layout regardless of dialog state */
+body {
+  position: relative;
+  overflow-x: hidden;
+  /* Prevent layout shifts by maintaining consistent box model */
+  box-sizing: border-box;
+}
+
+/* Prevent layout shift when dialog opens */
+.radix-dialog-overlay {
+  position: fixed;
+  inset: 0;
+}
+
+/* Override any potential Radix scroll compensation */
+html[data-scroll-locked],
+html[data-scroll-locked] body {
+  padding-right: 0 !important;
+  margin-right: 0 !important;
 }

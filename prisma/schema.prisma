@@ -1,0 +1,21 @@
+datasource db {
+  provider = "postgresql"
+  url      = "postgresql://astro:astro@localhost:5432/astrodb?schema=public"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model APIKeys {
+    id        String   @id @default(cuid())
+    key       String   @unique
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    type      KeyType  @default(GEMINI)
+}
+
+enum KeyType {
+    GEMINI
+    CEREBRAS
+}
