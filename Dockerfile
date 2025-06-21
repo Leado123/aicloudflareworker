@@ -1,9 +1,9 @@
 # Dockerfile for an Astro SSR project with PostgreSQL
-# Build stage - use the same bun version but with more build tools
-FROM oven/bun:1.1.9-alpine AS builder
+# Build stage - use Node.js instead of Bun to avoid native module issues
+FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Install comprehensive build dependencies
+# Install build dependencies
 RUN apk add --no-cache \
     git \
     python3 \
@@ -11,26 +11,23 @@ RUN apk add --no-cache \
     g++ \
     sqlite \
     sqlite-dev \
-    libc6-compat \
     linux-headers
 
 # Copy package files
-COPY package.json bun.lockb ./
+COPY package.json package-lock.json ./
 
 # Set environment variables to help with native module compilation
 ENV PYTHON=/usr/bin/python3
 ENV MAKE=/usr/bin/make
-ENV GCC=/usr/bin/gcc
-ENV GXX=/usr/bin/g++
 
-# Install dependencies with verbose logging for debugging
-RUN bun install --verbose
+# Install dependencies using npm (more reliable for native modules)
+RUN npm ci --include=dev
 
 # Copy source code
 COPY . .
 
 # Build the application
-RUN bun run build
+RUN npm run build
 
 # Runtime stage with PostgreSQL
 FROM node:20-alpine
