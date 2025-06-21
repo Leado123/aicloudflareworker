@@ -19,9 +19,9 @@ ENV PYTHON=/usr/bin/python3
 
 # Install dependencies with better-sqlite3 optional (since we use PostgreSQL)
 # Try normal install first, if it fails due to native modules, continue anyway
-RUN bun install --no-save --production=false --ignore-scripts || \
+RUN bun install --ignore-scripts || \
     (echo "Native module build failed, continuing with available packages..." && \
-     bun install --no-save --production=false --ignore-scripts --no-optional || true)
+     bun install --ignore-scripts || true)
 
 # Copy source code
 COPY . .
