@@ -1,4 +1,4 @@
-# Dockerfile for an Astro SSR project to run on Coolify (Node.js Build Runtime) (with PostgreSQL)
+# Dockerfile for an Astro SSR project with PostgreSQL
 # Build stage
 FROM oven/bun:1.1.9-alpine AS builder
 WORKDIR /app
@@ -7,40 +7,48 @@ COPY package.json bun.lockb ./
 RUN bun install
 COPY . .
 RUN bun run build
-# Runtime stage
+
+# Runtime stage with PostgreSQL
 FROM node:20-alpine
-# Install PostgreSQL client
-RUN apt-get update && apt-get install -y postgresql-client --no-install-recommends && rm -rf /var/lib/apt/lists/*
+# Install PostgreSQL and client
+RUN apk add --no-cache postgresql postgresql-contrib postgresql-client
 WORKDIR /app
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-ENV PORT 4321
-EXPOSE 4321
-# Add PostgreSQL service
-FROM postgres:16-alpine AS postgres_server
-ENV POSTGRES_USER=astro
-ENV POSTGRES_PASSWORD=astro
-ENV POSTGRES_DB=astrodb
-# Combine the application and database into a single image
-FROM node:20-alpine
-# Install PostgreSQL client
-RUN apt-get update && apt-get install -y postgresql-client --no-install-recommends && rm -rf /var/lib/apt/lists/*
-WORKDIR /app
+
 # Copy built application
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
-# Copy PostgreSQL data
-COPY --from=postgres_server /var/lib/postgresql/data /var/lib/postgresql/data
-# Copy PostgreSQL configuration
-COPY --from=postgres_server /usr/local/bin/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
-# Expose the application port
-EXPOSE 4321
-# Expose the PostgreSQL port
-EXPOSE 5432
-# Set environment variables for PostgreSQL
-ENV POSTGRES_USER=astro
-ENV POSTGRES_PASSWORD=astro
-ENV POSTGRES_DB=astrodb
-# Start PostgreSQL and then the Node.js application
-CMD service postgresql start && node dist/server/entry.mjs
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/package.json ./package.json
+
+# Create postgres user and initialize database
+RUN addgroup -g 70 -S postgres && \
+    adduser -u 70 -S -D -G postgres -H -h /var/lib/postgresql -s /bin/sh postgres && \
+    mkdir -p /var/lib/postgresql/data && \
+    chown -R postgres:postgres /var/lib/postgresql
+
+# Initialize PostgreSQL database
+USER postgres
+RUN initdb -D /var/lib/postgresql/data
+
+# Switch back to root to set up the startup script
+USER root
+
+# Create startup script
+RUN echo '#!/bin/sh' > /start.sh && \
+    echo 'su - postgres -c "pg_ctl -D /var/lib/postgresql/data -l /var/lib/postgresql/data/logfile start"' >> /start.sh && \
+    echo 'sleep 5' >> /start.sh && \
+    echo 'su - postgres -c "createdb -U postgres astrodb" || true' >> /start.sh && \
+    echo 'su - postgres -c "psql -c \"CREATE USER astro WITH PASSWORD '"'"'astro'"'"';\""' >> /start.sh && \
+    echo 'su - postgres -c "psql -c \"GRANT ALL PRIVILEGES ON DATABASE astrodb TO astro;\""' >> /start.sh && \
+    echo 'cd /app && npx prisma migrate deploy' >> /start.sh && \
+    echo 'node dist/server/entry.mjs' >> /start.sh && \
+    chmod +x /start.sh
+
+ENV PORT=4321
+ENV DATABASE_URL="postgresql://astro:astro@localhost:5432/astrodb?schema=public"
+
+# Expose ports
+EXPOSE 4321 5432
+
+# Start both PostgreSQL and the application
+CMD ["/start.sh"]
