@@ -35,11 +35,13 @@ FROM node:20-alpine
 RUN apk add --no-cache postgresql postgresql-contrib postgresql-client
 WORKDIR /app
 
-# Copy built application
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/prisma ./prisma
+# Copy only production package.json and install production dependencies
 COPY --from=builder /app/package.json ./package.json
+RUN npm ci --omit=dev --ignore-scripts
+
+# Copy built application and essential files
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/prisma ./prisma
 
 # Create postgres user and initialize database
 RUN addgroup -g 70 -S postgres && \
