@@ -2,10 +2,7 @@ import { FilePond } from "react-filepond";
 import "node_modules/filepond/dist/filepond.css";
 import { LucideCopy, LucideNotebookPen, LucideThumbsDown, LucideThumbsUp, LucideWalletCards, X } from "lucide-react";
 import { useRef, useState, useEffect } from "react";
-import { ReactFlow } from "@xyflow/react"
 import { FileDropZone } from "./ui/filedrop";
-import XArrow from "react-xarrows";
-import '@xyflow/react/dist/style.css';
 import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import TipTapEditor from './tiptapeditor';
