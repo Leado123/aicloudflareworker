@@ -1,18 +1,12 @@
 import { useState } from "react";
-import ASCIIText from "../blocks/TextAnimations/ASCIIText/ASCIIText"
 
 export default function WritingMode() {
-
-
-
   return (
-      <ASCIIText
-        text="currently in development"
-        asciiFontSize={10}
-        textFontSize={15}
-        enableWaves={false}
-        textColor="#40c4f0"
-      />
- 
+    <div className="flex items-center justify-center h-64">
+      <div className="text-center">
+        <h2 className="text-2xl font-bold text-blue-400 mb-4">Writing Mode</h2>
+        <p className="text-gray-500">Currently in development</p>
+      </div>
+    </div>
   );
 }
