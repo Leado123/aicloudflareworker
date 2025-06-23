@@ -59,12 +59,18 @@ USER root
 
 # Create startup script
 RUN echo '#!/bin/sh' > /start.sh && \
-    echo 'su - postgres -c "pg_ctl -D /var/lib/postgresql/data -l /var/lib/postgresql/data/logfile start"' >> /start.sh && \
-    echo 'sleep 5' >> /start.sh && \
-    echo 'su - postgres -c "createdb -U postgres astrodb" || true' >> /start.sh && \
-    echo 'su - postgres -c "psql -c \"CREATE USER astro WITH PASSWORD '"'"'astro'"'"';\""' >> /start.sh && \
+    echo 'echo "Starting PostgreSQL initialization..."' >> /start.sh && \
+    echo 'mkdir -p /var/run/postgresql' >> /start.sh && \
+    echo 'chown -R postgres:postgres /var/run/postgresql' >> /start.sh && \
+    echo 'su - postgres -c "pg_ctl -D /var/lib/postgresql/data -l /var/lib/postgresql/data/logfile start -w"' >> /start.sh && \
+    echo 'sleep 3' >> /start.sh && \
+    echo 'echo "Creating database and user..."' >> /start.sh && \
+    echo 'su - postgres -c "createdb -U postgres astrodb" || echo "Database astrodb already exists"' >> /start.sh && \
+    echo 'su - postgres -c "psql -c \"CREATE USER astro WITH PASSWORD '"'"'astro'"'"';\"" || echo "User astro already exists"' >> /start.sh && \
     echo 'su - postgres -c "psql -c \"GRANT ALL PRIVILEGES ON DATABASE astrodb TO astro;\""' >> /start.sh && \
+    echo 'echo "Running Prisma migrations..."' >> /start.sh && \
     echo 'cd /app && npx prisma migrate deploy' >> /start.sh && \
+    echo 'echo "Starting Node.js application..."' >> /start.sh && \
     echo 'node dist/server/entry.mjs' >> /start.sh && \
     chmod +x /start.sh
 
