@@ -21,8 +21,8 @@ const google = createGoogleGenerativeAI({
 });
 
 export const langfuse = new Langfuse({
-    secretKey: "sk-lf-309a678f-5517-499b-afad-cfc559bf094f",
-    publicKey: "pk-lf-e15b4ef5-81a1-430d-8d1b-cd57bfcb3606",
+    secretKey: "sk-lf-c2e76fd9-82b1-4edc-9ebf-0fabe86988ba",
+    publicKey: "pk-lf-ad80d8a5-5db2-4efd-ab2e-c50a8fa57c43",
     baseUrl: "https://langfuse.sharesyllabus.me"
 })
 
