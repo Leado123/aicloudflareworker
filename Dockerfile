@@ -18,10 +18,8 @@ COPY package.json bun.lockb ./
 ENV PYTHON=/usr/bin/python3
 
 # Install dependencies using Bun
-# --frozen-lockfile: Ensures that the lockfile is not modified
-# --production: Installs only production dependencies (optional, but good for build stage if you only need prod deps)
-# --ignore-scripts: Prevents running post-install scripts that might fail or are not needed during build
-RUN bun install --frozen-lockfile --production --ignore-scripts
+# Remove --production flag for build stage to get dev dependencies needed for build
+RUN bun install --frozen-lockfile --ignore-scripts
 
 # --- ADDED: Install tw-animate-css specifically if it's an external package ---
 # This step is added as a separate RUN command to potentially debug issues if bun install fails for this specific package.
@@ -79,7 +77,7 @@ RUN initdb -D /var/lib/postgresql/data
 USER root
 
 # Create startup script
-# Ensure psql commands correctly escape quotes
+# Fix shell script syntax errors by properly escaping quotes
 RUN echo '#!/bin/sh' > /start.sh && \
     echo 'echo "Starting PostgreSQL initialization..."' >> /start.sh && \
     echo 'mkdir -p /var/run/postgresql' >> /start.sh && \
@@ -88,10 +86,9 @@ RUN echo '#!/bin/sh' > /start.sh && \
     echo 'sleep 3' >> /start.sh && \
     echo 'echo "Creating database and user..."' >> /start.sh && \
     echo 'su - postgres -c "createdb -U postgres astrodb" || echo "Database astrodb already exists"' >> /start.sh && \
-    echo 'su - postgres -c "psql -c \\"CREATE USER astro WITH PASSWORD '"'"'astro'"'"';\\"" || echo "User astro already exists"' >> /start.sh && \
-    echo 'su - postgres -c "psql -c \\"GRANT ALL PRIVILEGES ON DATABASE astrodb TO astro;\\""' >> /start.sh && \
+    echo 'su - postgres -c "psql -c \"CREATE USER astro WITH PASSWORD '\''astro'\''\"" || echo "User astro already exists"' >> /start.sh && \
+    echo 'su - postgres -c "psql -c \"GRANT ALL PRIVILEGES ON DATABASE astrodb TO astro\""' >> /start.sh && \
     echo 'echo "Running Prisma migrations..."' >> /start.sh && \
-    # Using bun x for prisma commands
     echo 'cd /app && bun x prisma migrate deploy' >> /start.sh && \
     echo 'echo "Starting Node.js application..."' >> /start.sh && \
     echo 'node dist/server/entry.mjs' >> /start.sh && \
@@ -99,6 +96,7 @@ RUN echo '#!/bin/sh' > /start.sh && \
 
 ENV PORT=4321
 ENV DATABASE_URL="postgresql://astro:astro@localhost:5432/astrodb?schema=public"
+ENV GEMINI_API_KEY="AIzaSyCfNQuSrU46EFKrx_RKQCdtHT2jl3AcXBQ"
 
 # Expose ports
 EXPOSE 4321 5432

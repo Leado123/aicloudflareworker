@@ -1,4 +1,5 @@
-import { PrismaClient } from "@prisma/client";
+import pkg from '@prisma/client';
+const { PrismaClient } = pkg;
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { streamText } from "ai";
 
@@ -20,7 +21,7 @@ class APIKeyManager {
     private lastKeyFetchTime = 0;
     private validationInterval = 30 * 1000; // 30 seconds
     private keyRefreshInterval = 60 * 1000; // 1 minute
-    private fallbackApiKey = "AIzaSyCfNQuSrU46EFKrx_RKQCdtHT2jl3AcXBQ"; // Your original fallback key
+    private fallbackApiKey = process.env.GEMINI_API_KEY || ""; // Use environment variable instead of hardcoded key
 
     private constructor() {
         this.initializeKeys();

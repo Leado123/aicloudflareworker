@@ -2,7 +2,8 @@ import { APIContext } from "astro";
 import { convertToCoreMessages, streamText } from "ai"
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createCerebras } from '@ai-sdk/cerebras';
-import { PrismaClient } from "@prisma/client"
+import pkg from '@prisma/client';
+const { PrismaClient } = pkg;
 import APIKeyManager from "@/util/apiKeyManager";
 
 export const prerender = false;
