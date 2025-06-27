@@ -88,6 +88,9 @@ RUN echo '#!/bin/sh' > /start.sh && \
     echo 'su - postgres -c "createdb -U postgres astrodb" || echo "Database astrodb already exists"' >> /start.sh && \
     echo 'su - postgres -c "psql -c \"CREATE USER astro WITH PASSWORD '\''astro'\''\"" || echo "User astro already exists"' >> /start.sh && \
     echo 'su - postgres -c "psql -c \"GRANT ALL PRIVILEGES ON DATABASE astrodb TO astro\""' >> /start.sh && \
+    echo 'su - postgres -c "psql -d astrodb -c \"GRANT ALL ON SCHEMA public TO astro\""' >> /start.sh && \
+    echo 'su - postgres -c "psql -d astrodb -c \"GRANT CREATE ON SCHEMA public TO astro\""' >> /start.sh && \
+    echo 'su - postgres -c "psql -d astrodb -c \"ALTER SCHEMA public OWNER TO astro\""' >> /start.sh && \
     echo 'echo "Running Prisma migrations..."' >> /start.sh && \
     echo 'cd /app && bun x prisma migrate deploy' >> /start.sh && \
     echo 'echo "Starting Node.js application..."' >> /start.sh && \
