@@ -11,35 +11,57 @@ RUN apk add --no-cache \
     g++ \
     linux-headers
 
-# Copy package files
+# Copy package files for bun install
 COPY package.json bun.lockb ./
 
-# Set environment variables
+# Set environment variables for Python if needed by native modules
 ENV PYTHON=/usr/bin/python3
 
-# Install dependencies with better-sqlite3 optional (since we use PostgreSQL)
-# Try normal install first, if it fails due to native modules, continue anyway
-RUN bun install --ignore-scripts || \
-    (echo "Native module build failed, continuing with available packages..." && \
-     bun install --ignore-scripts || true)
+# Install dependencies using Bun
+# --frozen-lockfile: Ensures that the lockfile is not modified
+# --production: Installs only production dependencies (optional, but good for build stage if you only need prod deps)
+# --ignore-scripts: Prevents running post-install scripts that might fail or are not needed during build
+RUN bun install --frozen-lockfile --production --ignore-scripts
 
-# Copy source code
+# --- ADDED: Install tw-animate-css specifically if it's an external package ---
+# This step is added as a separate RUN command to potentially debug issues if bun install fails for this specific package.
+# If it's a direct dependency in package.json, the previous 'bun install' should handle it.
+# This line is primarily for demonstration if it's a global tool or a peer dependency not handled by default.
+# For most cases, ensuring it's in package.json and 'bun install' works is sufficient.
+# Assuming 'tw-animate-css' is a public npm package.
+# RUN bun add tw-animate-css
+
+# Copy source code and Prisma schema for client generation
+# Copying . before prisma generate ensures schema and other necessary files are present
 COPY . .
 
-# Build the application
+# Generate Prisma Client after installing dependencies and copying source
+# This ensures the application can use the generated client
+RUN bun x prisma generate
+
+# Build the application using Bun
 RUN bun run build
 
 # Runtime stage with PostgreSQL
 FROM node:20-alpine
-# Install PostgreSQL and client
-RUN apk add --no-cache postgresql postgresql-contrib postgresql-client
+
+# Install Bun globally for the runtime stage (needed for 'bun install' and 'bun x prisma')
+RUN npm install -g bun && \
+    # Install PostgreSQL and client
+    apk add --no-cache postgresql postgresql-contrib postgresql-client
+
 WORKDIR /app
 
-# Copy only production package.json for npm install
+# Copy only production package.json and bun.lockb for Bun production install
 COPY --from=builder /app/package.json ./package.json
-RUN npm install --omit=dev --ignore-scripts
+COPY --from=builder /app/bun.lockb ./bun.lockb
 
-# Copy built application and essential files
+# Install only production dependencies using Bun
+# --production: Installs only production dependencies
+# --ignore-scripts: Prevents running post-install scripts
+RUN bun install --production --ignore-scripts
+
+# Copy built application and essential files, including the generated Prisma client and schema
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 
@@ -57,6 +79,7 @@ RUN initdb -D /var/lib/postgresql/data
 USER root
 
 # Create startup script
+# Ensure psql commands correctly escape quotes
 RUN echo '#!/bin/sh' > /start.sh && \
     echo 'echo "Starting PostgreSQL initialization..."' >> /start.sh && \
     echo 'mkdir -p /var/run/postgresql' >> /start.sh && \
@@ -65,10 +88,11 @@ RUN echo '#!/bin/sh' > /start.sh && \
     echo 'sleep 3' >> /start.sh && \
     echo 'echo "Creating database and user..."' >> /start.sh && \
     echo 'su - postgres -c "createdb -U postgres astrodb" || echo "Database astrodb already exists"' >> /start.sh && \
-    echo 'su - postgres -c "psql -c \"CREATE USER astro WITH PASSWORD '"'"'astro'"'"';\"" || echo "User astro already exists"' >> /start.sh && \
-    echo 'su - postgres -c "psql -c \"GRANT ALL PRIVILEGES ON DATABASE astrodb TO astro;\""' >> /start.sh && \
+    echo 'su - postgres -c "psql -c \\"CREATE USER astro WITH PASSWORD '"'"'astro'"'"';\\"" || echo "User astro already exists"' >> /start.sh && \
+    echo 'su - postgres -c "psql -c \\"GRANT ALL PRIVILEGES ON DATABASE astrodb TO astro;\\""' >> /start.sh && \
     echo 'echo "Running Prisma migrations..."' >> /start.sh && \
-    echo 'cd /app && npx prisma migrate deploy' >> /start.sh && \
+    # Using bun x for prisma commands
+    echo 'cd /app && bun x prisma migrate deploy' >> /start.sh && \
     echo 'echo "Starting Node.js application..."' >> /start.sh && \
     echo 'node dist/server/entry.mjs' >> /start.sh && \
     chmod +x /start.sh
