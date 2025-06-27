@@ -34,7 +34,8 @@ RUN bun install --frozen-lockfile --ignore-scripts
 COPY . .
 
 # Generate Prisma Client after installing dependencies and copying source
-# This ensures the application can use the generated client
+# Set a temporary DATABASE_URL for build stage (Prisma needs this even just for generation)
+ENV DATABASE_URL="postgresql://user:pass@localhost:5432/db?schema=public"
 RUN bun x prisma generate
 
 # Build the application using Bun
