@@ -62,6 +62,7 @@ RUN bun install --production --ignore-scripts
 # Copy built application and essential files, including the generated Prisma client and schema
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
 # Create postgres user and initialize database
 RUN addgroup -g 70 -S postgres || true && \
