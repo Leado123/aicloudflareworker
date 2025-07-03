@@ -15,12 +15,17 @@ export default defineConfig({
     mode: 'standalone'
   }),
 
+
   server: {
+    
     port: 4321,
     host: '0.0.0.0'
   },
 
   vite: {
+    server: {
+      allowedHosts: ["code.sharesyllabus.me"]
+    },
     plugins: [tailwindcss()],
     ssr: {
       external: ['node:buffer', 'node:async_hooks', "react-dom"], // Potentially needed for other Node.js compat issues
