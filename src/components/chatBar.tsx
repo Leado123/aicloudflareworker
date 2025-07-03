@@ -1,4 +1,4 @@
-import { Conversation, conversations, currentConversation, currentConversationId, conversationEmpty, updateConversation, createNewConversation, generateTitleFromMessage } from "@/util/store";
+import { type Conversation } from "@/util/modeDefinitions";
 import { Input } from "./ui/input";
 import { useStore } from "@nanostores/react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -8,15 +8,30 @@ import { requestChatMessage, requestChatMessageStream } from "@/util/requestChat
 import type { CoreMessage } from "ai";
 import { isAtBottomAtom, scrollToBottomSignal } from "./messages";
 
-export default function ChatBar() {
-    const $currentConversation = useStore(currentConversation);
-    const $conversationEmpty = useStore(conversationEmpty);
+interface ChatBarProps {
+    currentConversation: Conversation | null;
+    conversationEmpty: boolean;
+    updateConversation: (id: string, updates: Partial<Conversation>) => void;
+    createConversation: (data: Partial<Conversation>) => string;
+}
+
+export default function ChatBar({ 
+    currentConversation: $currentConversation, 
+    conversationEmpty: $conversationEmpty,
+    updateConversation,
+    createConversation
+}: ChatBarProps) {
     const $isAtBottom = useStore(isAtBottomAtom);
 
     const [inputValue, setInputValue] = useState("");
     
+    const generateTitleFromMessage = (message: string): string => {
+        const truncated = message.trim().substring(0, 20);
+        return truncated.length < message.trim().length ? truncated + "..." : truncated;
+    };
+    
     const handleNewConversation = () => {
-        createNewConversation("New Chat");
+        createConversation({ title: "New Chat" });
         setInputValue("");
     };
     
@@ -30,9 +45,9 @@ export default function ChatBar() {
         console.log("Sending user message:", inputValue.trim()); // Log user message
         console.log("Input value:", inputValue); // Log the current input value
 
-        // Get current conversation state fresh from store
-        let conversationId = currentConversationId.get();
-        let conversation = currentConversation.get();
+        // Get current conversation state
+        let conversationId = $currentConversation?.id;
+        let conversation = $currentConversation;
 
         console.log("Current conversation ID:", conversationId);
         console.log("Current conversation:", conversation);
@@ -41,9 +56,9 @@ export default function ChatBar() {
         if (!conversation || !conversationId) {
             console.log("No current conversation available, creating new one.");
             const title = generateTitleFromMessage(inputValue.trim());
-            conversationId = createNewConversation(title);
-            // Get the newly created conversation fresh from store
-            conversation = conversations.get().find(c => c.id === conversationId) || null;
+            conversationId = createConversation({ title });
+            // The conversation will be updated by the mode system
+            conversation = { id: conversationId, title, messages: [] };
             if (!conversation) {
                 console.error("Failed to create or find new conversation.");
                 return;
@@ -85,19 +100,18 @@ export default function ChatBar() {
                 fullResponse += chunk;
                 console.log("Received chunk:", chunk, "Full response so far:", fullResponse.length, "chars");
 
-                // Get fresh conversation ID in case it changed
-                const currentConvId = currentConversationId.get();
-                if (!currentConvId || typeof currentConvId !== "string") {
-                    console.error("Invalid or missing current conversation ID:", currentConvId);
+                // Use the current conversation ID
+                if (!conversationId || typeof conversationId !== "string") {
+                    console.error("Invalid or missing current conversation ID:", conversationId);
                     return;
                 }
 
-                console.log("Using conversation ID for update:", currentConvId, "original was:", conversationId);
+                console.log("Using conversation ID for update:", conversationId);
 
                 // Update the AI message content in real-time
                 const updatedStreamingMessages: CoreMessage[] = [...updatedMessages, { role: "assistant", content: fullResponse }];
                 console.log("Updating conversation with", updatedStreamingMessages.length, "messages");
-                updateConversation(currentConvId, { messages: updatedStreamingMessages });
+                updateConversation(conversationId, { messages: updatedStreamingMessages });
             });
 
             console.log("AI response completed:", fullResponse.length, "characters total");

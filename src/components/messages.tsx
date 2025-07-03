@@ -1,4 +1,4 @@
-import { currentConversation } from "@/util/store";
+import { type Conversation } from "@/util/modeDefinitions";
 import { atom } from "nanostores";
 import { useStore } from "@nanostores/react";
 import { useEffect, useRef, useState } from "react";
@@ -14,8 +14,11 @@ export const isAtBottomAtom = atom<boolean>(true);
 // Create a signal to trigger scroll to bottom
 export const scrollToBottomSignal = atom<number>(0);
 
-export default function Messages() {
-    const $currentConversation = useStore(currentConversation);
+interface MessagesProps {
+    currentConversation: Conversation | null;
+}
+
+export default function Messages({ currentConversation: $currentConversation }: MessagesProps) {
     const $scrollToBottomSignal = useStore(scrollToBottomSignal);
     const [isItStreaming, setIsItStreaming] = useState<boolean | null>(false);
     const scrollAreaRef = useRef<HTMLDivElement>(null);

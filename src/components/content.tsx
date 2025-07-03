@@ -1,31 +1,17 @@
-import { contentMode } from "@/util/store";
-import { useStore } from "@nanostores/react";
-import ChatMode from "./chatMode";
-import GradientText from "./gradienttext";
-import CraftingTableMode from "./craftingTableMode";
-import WritingMode from "./writingMode";
+import { ModeProvider, CurrentModeRenderer } from "./ModeProvider";
 
 export default function Content() {
-
-    const $contentMode = useStore(contentMode);
-
     return (
-        <div className="border flex-1 rounded-lg relative overflow-hidden">
-            <div className="absolute inset-0 pointer-events-none z-0">
-                
+        <ModeProvider>
+            <div className="flex-1 rounded-lg relative overflow-hidden">
+                <div className="absolute inset-0 pointer-events-none z-0">
+                    
+                </div>
+                <div className="relative z-10 flex flex-col h-full justify-end">
+                    <CurrentModeRenderer />
+                </div>
             </div>
-            <div className="relative z-10 flex flex-col h-full justify-end">
-                {$contentMode === "chat" && (
-                    <ChatMode />
-                )}
-                {$contentMode === "craftingTable" && (
-                    <CraftingTableMode />
-                )}
-                {$contentMode === "write" && (
-                    <WritingMode />
-                )}
-            </div>
-        </div>
-    )
+        </ModeProvider>
+    );
 }
 

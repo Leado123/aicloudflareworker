@@ -1,7 +1,7 @@
 import { LucideArrowUpRight, LucideHandHelping, LucideMessageCircle, LucidePencilRuler, LucideSparkles, LucideLoader2 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
-import { contentMode } from "@/util/store"
-import { useStore } from "@nanostores/react";
+import { useModeSwitcher } from "./ModeProvider";
+import { allModes } from "@/util/modes";
 import { Button } from "./ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import { Label } from "./ui/label";
@@ -9,7 +9,7 @@ import { Input } from "./ui/input";
 import { useState } from "react";
 
 export default function TopBar() {
-    const $contentMode = useStore(contentMode);
+    const { currentMode, switchMode } = useModeSwitcher();
     const [apiKey, setApiKey] = useState("");
     const [selectedService, setSelectedService] = useState<"gemini" | "cerebras">("gemini");
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -67,17 +67,19 @@ export default function TopBar() {
 
     return (
         <div className="w-full grid grid-cols-3 place-items-center">
-            <div />
-            <Tabs value={$contentMode as "chat" | "craftingTable" | "write"} onValueChange={(e) => contentMode.set(e as "chat" | "craftingTable" | "write")} defaultValue={contentMode.get()} className="w-full grid- flex place-items-center ">
+            <div>
+                <text className="font-semibold text-xl flex-1">Fishy Studio</text>
+            </div>
+            <Tabs value={currentMode} onValueChange={value => switchMode(value as typeof currentMode)} className="w-full grid- flex place-items-center ">
                 <TabsList>
                     <TabsTrigger value="chat">
-                        <LucideMessageCircle /> AI Chat
+                        <LucideMessageCircle /> {allModes.chat.displayName}
                     </TabsTrigger>
                     <TabsTrigger value="craftingTable">
-                        <LucideSparkles /> Crafting Table
+                        <LucideSparkles /> {allModes.craftingTable.displayName}
                     </TabsTrigger>
                     <TabsTrigger value="write">
-                        <LucidePencilRuler /> AI Essay Editor
+                        <LucidePencilRuler /> {allModes.write.displayName}
                     </TabsTrigger>
                 </TabsList>
             </Tabs>
