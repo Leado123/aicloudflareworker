@@ -12,6 +12,7 @@ import {
 import ChatMode from '../components/chatMode';
 import CraftingTableMode from '../components/newCraftingTableMode';
 import WritingMode from '../components/writingMode';
+import CalculatorMode from '../components/calculatorMode';
 
 // Chat Mode Definition
 export const chatMode: ModeDefinition<Conversation> = {
@@ -212,11 +213,30 @@ export const writingMode: ModeDefinition<Document> = {
     }
 };
 
+// Calculator Mode Definition (no entities needed)
+export const calculatorMode: ModeDefinition<any> = {
+    name: 'calculator',
+    key: 'calculator',
+    icon: 'Calculator',
+    displayName: 'Calculator',
+    component: CalculatorMode,
+    dataType: class CalculatorClass {} as any, // Dummy class since no entities needed
+    
+    defaultEntity: () => ({}), // Empty default since no entities
+    serialize: () => ({}), // No serialization needed
+    deserialize: () => ({}), // No deserialization needed
+    isEmpty: () => false, // Calculator doesn't have entities, so never "empty"
+    
+    // No API actions needed for calculator
+    apiActions: {}
+};
+
 // Export all modes
 export const allModes = {
     chat: chatMode,
     craftingTable: craftingTableMode,
-    write: writingMode
+    write: writingMode,
+    calculator: calculatorMode
 } as const;
 
 export type ModeKey = keyof typeof allModes;

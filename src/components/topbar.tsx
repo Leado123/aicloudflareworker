@@ -1,4 +1,4 @@
-import { LucideArrowUpRight, LucideHandHelping, LucideMessageCircle, LucidePencilRuler, LucideSparkles, LucideLoader2 } from "lucide-react";
+import { LucideArrowUpRight, LucideHandHelping, LucideMessageCircle, LucidePencilRuler, LucideSparkles, LucideLoader2, LucideCalculator } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
 import { useModeSwitcher } from "./ModeProvider";
 import { allModes } from "@/util/modes";
@@ -68,7 +68,6 @@ export default function TopBar() {
     return (
         <div className="w-full grid grid-cols-3 place-items-center">
             <div>
-                <text className="font-semibold text-xl flex-1">Fishy Studio</text>
             </div>
             <Tabs value={currentMode} onValueChange={value => switchMode(value as typeof currentMode)} className="w-full grid- flex place-items-center ">
                 <TabsList>
@@ -80,6 +79,9 @@ export default function TopBar() {
                     </TabsTrigger>
                     <TabsTrigger value="write">
                         <LucidePencilRuler /> {allModes.write.displayName}
+                    </TabsTrigger>
+                    <TabsTrigger value="calculator">
+                        <LucideCalculator /> {allModes.calculator.displayName}
                     </TabsTrigger>
                 </TabsList>
             </Tabs>

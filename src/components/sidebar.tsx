@@ -1,4 +1,4 @@
-import { LucideMessageCircle, LucidePlus, LucideX, LucideSparkles, LucidePencilRuler } from "lucide-react";
+import { LucideMessageCircle, LucidePlus, LucideX, LucideSparkles, LucidePencilRuler, LucideHome, LucideFlag, LucideSettings } from "lucide-react";
 import { motion } from "framer-motion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card";
@@ -113,13 +113,15 @@ export default function SideBar() {
     return (
         <div className="w-64 p-2 pt-0 border-r flex flex-col h-full">
             <div className="pb-2 flex place-items-center rounded-lg">
-                <h2 className="text-lg font-semibold">Workspace</h2>
+                <h2 className="text-lg font-semibold">SS Studio</h2>
             </div>
             
             <div className="flex-1 overflow-y-auto space-y-4">
-                {Object.keys(allModes).map((modeKey) => (
-                    <ModeEntityList key={modeKey} modeKey={modeKey as ModeKey} />
-                ))}
+                {Object.keys(allModes)
+                    .filter(modeKey => modeKey !== 'calculator') // Exclude calculator since it doesn't use entities
+                    .map((modeKey) => (
+                        <ModeEntityList key={modeKey} modeKey={modeKey as ModeKey} />
+                    ))}
             </div>
 
             <div className="pt-2 border-t">
