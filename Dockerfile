@@ -36,7 +36,15 @@ COPY . .
 # Generate Prisma Client after installing dependencies and copying source
 # Set a temporary DATABASE_URL for build stage (Prisma needs this even just for generation)
 ENV DATABASE_URL="postgresql://user:pass@localhost:5432/db?schema=public"
-RUN bun x prisma generate
+
+# Install Node.js temporarily for Prisma generation (Bun has compatibility issues with Prisma generate)
+RUN apk add --no-cache nodejs npm
+
+# Debug: Check schema file exists and show content
+RUN ls -la prisma/ && cat prisma/schema.prisma
+
+# Use the locally installed Prisma (from bun install) instead of global
+RUN npx prisma generate
 
 # Build the application using Bun
 RUN bun run build
@@ -44,7 +52,8 @@ RUN bun run build
 # Runtime stage with PostgreSQL
 FROM node:20-alpine
 
-# Install Bun globally for the runtime stage (needed for 'bun install' and 'bun x prisma')
+# Install Bun globally for the runtime stage (needed for 'bun install')
+# Also install Node.js for Prisma CLI operations
 RUN npm install -g bun && \
     # Install PostgreSQL and client
     apk add --no-cache postgresql postgresql-contrib postgresql-client
@@ -94,7 +103,7 @@ RUN echo '#!/bin/sh' > /start.sh && \
     echo 'su - postgres -c "psql -d astrodb -c \"GRANT CREATE ON SCHEMA public TO astro\""' >> /start.sh && \
     echo 'su - postgres -c "psql -d astrodb -c \"ALTER SCHEMA public OWNER TO astro\""' >> /start.sh && \
     echo 'echo "Running Prisma migrations..."' >> /start.sh && \
-    echo 'cd /app && bun x prisma migrate deploy' >> /start.sh && \
+    echo 'cd /app && npx prisma migrate deploy' >> /start.sh && \
     echo 'echo "Starting Node.js application..."' >> /start.sh && \
     echo 'node dist/server/entry.mjs' >> /start.sh && \
     chmod +x /start.sh
