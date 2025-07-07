@@ -66,8 +66,8 @@ sleep 3
 if [ ! -f /var/lib/postgresql/.setup_done ]; then
     echo "Setting up database and user..."
     su - postgres -c "createdb astrodb" 2>/dev/null || echo "Database astrodb already exists"
-    su - postgres -c "psql -c \"CREATE USER astro WITH PASSWORD 'astro';\"" 2>/dev/null || echo "User astro already exists"
-    su - postgres -c "psql -c \"GRANT ALL PRIVILEGES ON DATABASE astrodb TO astro;\""
+    su - postgres -c "psql -c \"CREATE USER astro WITH PASSWORD 'astro'\"" 2>/dev/null || echo "User astro already exists"
+    su - postgres -c "psql -c \"GRANT ALL PRIVILEGES ON DATABASE astrodb TO astro\""
     
     echo "Running migrations..."
     cd /app && npx prisma migrate deploy
