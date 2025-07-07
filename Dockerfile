@@ -71,8 +71,8 @@ EOF
 RUN chmod +x /start.sh
 
 # Create postgres user
-RUN addgroup -g 70 -S postgres && \
-    adduser -u 70 -S -D -G postgres -H -h /var/lib/postgresql -s /bin/sh postgres
+RUN addgroup -g 70 -S postgres 2>/dev/null || true && \
+    adduser -u 70 -S -D -G postgres -H -h /var/lib/postgresql -s /bin/sh postgres 2>/dev/null || true
 
 ENV PORT=4321
 ENV DATABASE_URL="postgresql://astro:astro@localhost:5432/astrodb?schema=public"
