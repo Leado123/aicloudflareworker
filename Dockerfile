@@ -58,14 +58,14 @@ sleep 3
 
 # Setup database and user
 su - postgres -c "createdb -U postgres astrodb" 2>/dev/null || echo "Database astrodb already exists"
-su - postgres -c "psql -c \"CREATE USER astro WITH PASSWORD 'astro'\"" 2>/dev/null || echo "User astro already exists"
-su - postgres -c "psql -c \"GRANT ALL PRIVILEGES ON DATABASE astrodb TO astro\""
+su - postgres -c "psql -c \"CREATE USER astro WITH PASSWORD 'astro';\"" 2>/dev/null || echo "User astro already exists"
+su - postgres -c "psql -c \"GRANT ALL PRIVILEGES ON DATABASE astrodb TO astro;\""
 
 echo "Running migrations..."
 cd /app && npx prisma migrate deploy
 
 echo "Starting application..."
-node dist/server/entry.mjs
+exec node dist/server/entry.mjs
 EOF
 
 RUN chmod +x /start.sh
