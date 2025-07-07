@@ -36,35 +36,42 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
-# Create postgres user and initialize database
-RUN addgroup -g 70 -S postgres || true && \
-    adduser -u 70 -S -D -G postgres -H -h /var/lib/postgresql -s /bin/sh postgres || true && \
-    mkdir -p /var/lib/postgresql/data && \
-    chown -R postgres:postgres /var/lib/postgresql
+# Create startup script first
+COPY <<EOF /start.sh
+#!/bin/sh
+set -e
 
-# Initialize PostgreSQL database
-USER postgres
-RUN initdb -D /var/lib/postgresql/data
+echo "Starting PostgreSQL..."
+mkdir -p /var/run/postgresql /var/lib/postgresql/data
+chown -R postgres:postgres /var/run/postgresql /var/lib/postgresql
 
-# Switch back to root to set up the startup script
-USER root
+# Initialize database if not exists
+if [ ! -f /var/lib/postgresql/data/PG_VERSION ]; then
+    echo "Initializing database..."
+    su - postgres -c "initdb -D /var/lib/postgresql/data"
+fi
 
-# Create startup script
-RUN echo '#!/bin/sh' > /start.sh && \
-    echo 'echo "Starting PostgreSQL..."' >> /start.sh && \
-    echo 'mkdir -p /var/run/postgresql' >> /start.sh && \
-    echo 'chown -R postgres:postgres /var/run/postgresql' >> /start.sh && \
-    echo 'su - postgres -c "pg_ctl -D /var/lib/postgresql/data -l /var/lib/postgresql/data/logfile start -w"' >> /start.sh && \
-    echo 'sleep 3' >> /start.sh && \
-    echo 'echo "Setting up database..."' >> /start.sh && \
-    echo 'su - postgres -c "createdb -U postgres astrodb" || echo "Database exists"' >> /start.sh && \
-    echo 'su - postgres -c "psql -c \"CREATE USER astro WITH PASSWORD '\''astro'\''\"" || echo "User exists"' >> /start.sh && \
-    echo 'su - postgres -c "psql -c \"GRANT ALL PRIVILEGES ON DATABASE astrodb TO astro\""' >> /start.sh && \
-    echo 'echo "Running migrations..."' >> /start.sh && \
-    echo 'cd /app && npx prisma migrate deploy' >> /start.sh && \
-    echo 'echo "Starting application..."' >> /start.sh && \
-    echo 'node dist/server/entry.mjs' >> /start.sh && \
-    chmod +x /start.sh
+# Start PostgreSQL
+su - postgres -c "pg_ctl -D /var/lib/postgresql/data -l /var/lib/postgresql/data/logfile start -w"
+sleep 3
+
+# Setup database and user
+su - postgres -c "createdb -U postgres astrodb" 2>/dev/null || echo "Database astrodb already exists"
+su - postgres -c "psql -c \"CREATE USER astro WITH PASSWORD 'astro'\"" 2>/dev/null || echo "User astro already exists"
+su - postgres -c "psql -c \"GRANT ALL PRIVILEGES ON DATABASE astrodb TO astro\""
+
+echo "Running migrations..."
+cd /app && npx prisma migrate deploy
+
+echo "Starting application..."
+node dist/server/entry.mjs
+EOF
+
+RUN chmod +x /start.sh
+
+# Create postgres user
+RUN addgroup -g 70 -S postgres && \
+    adduser -u 70 -S -D -G postgres -H -h /var/lib/postgresql -s /bin/sh postgres
 
 ENV PORT=4321
 ENV DATABASE_URL="postgresql://astro:astro@localhost:5432/astrodb?schema=public"
