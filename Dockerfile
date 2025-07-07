@@ -37,12 +37,18 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules ./node_modules
 COPY package.json ./
 
-# Create startup script first
+# Create postgres user first
+RUN addgroup -g 70 -S postgres 2>/dev/null || true && \
+    adduser -u 70 -S -D -G postgres -H -h /var/lib/postgresql -s /bin/sh postgres 2>/dev/null || true
+
+# Create startup script
 COPY <<EOF /start.sh
 #!/bin/sh
 set -e
 
-echo "Starting PostgreSQL..."
+echo "Starting PostgreSQL setup..."
+
+# Create directories and set permissions
 mkdir -p /var/run/postgresql /var/lib/postgresql/data
 chown -R postgres:postgres /var/run/postgresql /var/lib/postgresql
 
@@ -52,22 +58,32 @@ if [ ! -f /var/lib/postgresql/data/PG_VERSION ]; then
     su - postgres -c "initdb -D /var/lib/postgresql/data"
 fi
 
-# Check if PostgreSQL is already running
+# Start PostgreSQL if not running
 if ! su - postgres -c "pg_ctl -D /var/lib/postgresql/data status" >/dev/null 2>&1; then
     echo "Starting PostgreSQL server..."
     su - postgres -c "pg_ctl -D /var/lib/postgresql/data -l /var/lib/postgresql/data/logfile start -w"
-else
-    echo "PostgreSQL is already running"
 fi
 
-sleep 3
+# Wait for PostgreSQL to be ready
+sleep 5
 
 # Setup database and user (only once)
 if [ ! -f /var/lib/postgresql/.setup_done ]; then
     echo "Setting up database and user..."
+    
+    # Create database
     su - postgres -c "createdb astrodb" 2>/dev/null || echo "Database astrodb already exists"
-    su - postgres -c "psql -c \"CREATE USER astro WITH PASSWORD 'astro'\"" 2>/dev/null || echo "User astro already exists"
-    su - postgres -c "psql -c \"GRANT ALL PRIVILEGES ON DATABASE astrodb TO astro\""
+    
+    # Create user with proper escaping
+    su - postgres -c "psql -c \"CREATE USER astro WITH PASSWORD 'astro';\"" 2>/dev/null || echo "User astro already exists"
+    
+    # Grant privileges with proper escaping
+    su - postgres -c "psql -c \"GRANT ALL PRIVILEGES ON DATABASE astrodb TO astro;\""
+    
+    # Additional permissions for schema
+    su - postgres -c "psql -d astrodb -c \"GRANT ALL ON SCHEMA public TO astro;\""
+    su - postgres -c "psql -d astrodb -c \"GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO astro;\""
+    su - postgres -c "psql -d astrodb -c \"GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO astro;\""
     
     echo "Running migrations..."
     cd /app && npx prisma migrate deploy
@@ -76,7 +92,7 @@ if [ ! -f /var/lib/postgresql/.setup_done ]; then
     touch /var/lib/postgresql/.setup_done
     echo "Database setup completed"
 else
-    echo "Database already set up, skipping..."
+    echo "Database already set up, skipping initialization..."
 fi
 
 echo "Starting application..."
@@ -84,10 +100,6 @@ exec node dist/server/entry.mjs
 EOF
 
 RUN chmod +x /start.sh
-
-# Create postgres user
-RUN addgroup -g 70 -S postgres 2>/dev/null || true && \
-    adduser -u 70 -S -D -G postgres -H -h /var/lib/postgresql -s /bin/sh postgres 2>/dev/null || true
 
 ENV PORT=4321
 ENV DATABASE_URL="postgresql://astro:astro@localhost:5432/astrodb?schema=public"
