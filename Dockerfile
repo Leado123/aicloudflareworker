@@ -52,17 +52,32 @@ if [ ! -f /var/lib/postgresql/data/PG_VERSION ]; then
     su - postgres -c "initdb -D /var/lib/postgresql/data"
 fi
 
-# Start PostgreSQL
-su - postgres -c "pg_ctl -D /var/lib/postgresql/data -l /var/lib/postgresql/data/logfile start -w"
+# Check if PostgreSQL is already running
+if ! su - postgres -c "pg_ctl -D /var/lib/postgresql/data status" >/dev/null 2>&1; then
+    echo "Starting PostgreSQL server..."
+    su - postgres -c "pg_ctl -D /var/lib/postgresql/data -l /var/lib/postgresql/data/logfile start -w"
+else
+    echo "PostgreSQL is already running"
+fi
+
 sleep 3
 
-# Setup database and user
-su - postgres -c "createdb -U postgres astrodb" 2>/dev/null || echo "Database astrodb already exists"
-su - postgres -c "psql -c \"CREATE USER astro WITH PASSWORD 'astro';\"" 2>/dev/null || echo "User astro already exists"
-su - postgres -c "psql -c \"GRANT ALL PRIVILEGES ON DATABASE astrodb TO astro;\""
-
-echo "Running migrations..."
-cd /app && npx prisma migrate deploy
+# Setup database and user (only once)
+if [ ! -f /var/lib/postgresql/.setup_done ]; then
+    echo "Setting up database and user..."
+    su - postgres -c "createdb astrodb" 2>/dev/null || echo "Database astrodb already exists"
+    su - postgres -c "psql -c \"CREATE USER astro WITH PASSWORD 'astro';\"" 2>/dev/null || echo "User astro already exists"
+    su - postgres -c "psql -c \"GRANT ALL PRIVILEGES ON DATABASE astrodb TO astro;\""
+    
+    echo "Running migrations..."
+    cd /app && npx prisma migrate deploy
+    
+    # Mark setup as done
+    touch /var/lib/postgresql/.setup_done
+    echo "Database setup completed"
+else
+    echo "Database already set up, skipping..."
+fi
 
 echo "Starting application..."
 exec node dist/server/entry.mjs
