@@ -46,6 +46,16 @@ COPY <<EOF /start.sh
 #!/bin/sh
 set -e
 
+# Function to gracefully shut down postgres
+cleanup() {
+    echo "Stopping PostgreSQL..."
+    su - postgres -c "pg_ctl -D /var/lib/postgresql/data stop"
+    exit 0
+}
+
+# Trap TERM signal
+trap cleanup TERM
+
 echo "Starting PostgreSQL setup..."
 
 # Create directories and set permissions
@@ -71,20 +81,17 @@ sleep 5
 if [ ! -f /var/lib/postgresql/.setup_done ]; then
     echo "Setting up database and user..."
     
-    # Create database
     su - postgres -c "createdb astrodb" 2>/dev/null || echo "Database astrodb already exists"
     
-    # Create user with proper escaping
-    su - postgres -c "psql -c \"CREATE USER astro WITH PASSWORD 'astro';\"" 2>/dev/null || echo "User astro already exists"
-    
-    # Grant privileges with proper escaping
-    su - postgres -c "psql -c \"GRANT ALL PRIVILEGES ON DATABASE astrodb TO astro;\""
-    
-    # Additional permissions for schema
-    su - postgres -c "psql -d astrodb -c \"GRANT ALL ON SCHEMA public TO astro;\""
-    su - postgres -c "psql -d astrodb -c \"GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO astro;\""
-    su - postgres -c "psql -d astrodb -c \"GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO astro;\""
-    
+    # Use a here-document to pass all SQL commands to psql at once
+    su - postgres -c "psql -v ON_ERROR_STOP=1 --dbname astrodb <<-EOSQL
+        CREATE USER astro WITH PASSWORD 'astro';
+        GRANT ALL PRIVILEGES ON DATABASE astrodb TO astro;
+        GRANT ALL ON SCHEMA public TO astro;
+        GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO astro;
+        GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO astro;
+EOSQL" 2>/dev/null || echo "User astro and permissions already configured or an error occurred."
+
     echo "Running migrations..."
     cd /app && npx prisma migrate deploy
     
@@ -96,7 +103,10 @@ else
 fi
 
 echo "Starting application..."
-exec node dist/server/entry.mjs
+exec node dist/server/entry.mjs &
+
+# Wait for background process to exit
+wait $!
 EOF
 
 RUN chmod +x /start.sh
