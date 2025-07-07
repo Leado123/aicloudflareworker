@@ -30,14 +30,12 @@ RUN apk add --no-cache postgresql postgresql-contrib postgresql-client
 
 WORKDIR /app
 
-# Copy package files and install production dependencies
-COPY package.json package-lock.json* ./
-RUN npm ci --only=production && npm cache clean --force
-
 # Copy built application and essential files
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules ./node_modules
+COPY package.json ./
 
 # Create startup script first
 COPY <<EOF /start.sh
