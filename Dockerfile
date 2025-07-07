@@ -1,13 +1,16 @@
 # Dockerfile for an Astro SSR project with PostgreSQL
-# Build stage - use Node.js instead of Bun for faster, more reliable builds
-FROM oven/bun:1.1.9-alpine AS builder
+# Build stage - use Node.js for faster, more reliable builds
+FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Copy package files
-COPY package.json bun.lockb ./
+# Install build dependencies
+RUN apk add --no-cache git python3 make g++ linux-headers
 
-# Use --no-save and --ignore-scripts to speed up
-RUN bun install --frozen-lockfile --no-save --ignore-scripts --verbose
+# Copy package files
+COPY package.json package-lock.json* ./
+
+# Install dependencies with timeout and retry logic
+RUN npm ci --verbose --timeout=300000
 
 # Copy source code
 COPY . .
