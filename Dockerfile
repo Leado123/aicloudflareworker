@@ -7,10 +7,10 @@ WORKDIR /app
 RUN apk add --no-cache git python3 make g++ linux-headers
 
 # Copy package files
-COPY package.json package-lock.json* ./
+COPY package.json bun.lockb ./
 
 # Install dependencies with timeout and retry logic
-RUN npm ci --verbose --timeout=300000
+RUN npm install --verbose --timeout=300000
 
 # Copy source code
 COPY . .
