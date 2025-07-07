@@ -28,6 +28,7 @@ export default function Messages({ currentConversation: $currentConversation }: 
     const { ref: bottomSentinelRef, inView: isAtBottom } = useInView({
         threshold: 0,
         rootMargin: '0px',
+        root: scrollAreaRef.current, // Use the messages container as the root
     });
 
     // Update the nanostore when the bottom visibility changes
@@ -42,20 +43,15 @@ export default function Messages({ currentConversation: $currentConversation }: 
         if ($scrollToBottomSignal > 0) {
             console.log('Attempting to scroll to bottom...');
             
-            // Find the actual scrollable parent container
             const messagesElement = scrollAreaRef.current;
-            const scrollableParent = messagesElement?.parentElement;
             
-            console.log('Messages element:', messagesElement);
-            console.log('Scrollable parent:', scrollableParent);
-            
-            if (scrollableParent) {
-                console.log('Parent scrollHeight:', scrollableParent.scrollHeight);
-                console.log('Parent clientHeight:', scrollableParent.clientHeight);
+            if (messagesElement) {
+                console.log('Messages element scrollHeight:', messagesElement.scrollHeight);
+                console.log('Messages element clientHeight:', messagesElement.clientHeight);
                 
-                // Only use smooth scroll - no immediate jump
-                scrollableParent.scrollTo({
-                    top: scrollableParent.scrollHeight,
+                // Scroll the messages container itself
+                messagesElement.scrollTo({
+                    top: messagesElement.scrollHeight,
                     behavior: 'smooth'
                 });
             }
@@ -71,9 +67,10 @@ export default function Messages({ currentConversation: $currentConversation }: 
     useEffect(() => {
         if ($currentConversation?.messages && isAtBottom && scrollAreaRef.current) {
             setTimeout(() => {
-                if (scrollAreaRef.current) {
-                    scrollAreaRef.current.scrollTo({
-                        top: scrollAreaRef.current.scrollHeight,
+                const messagesElement = scrollAreaRef.current;
+                if (messagesElement) {
+                    messagesElement.scrollTo({
+                        top: messagesElement.scrollHeight,
                         behavior: 'smooth'
                     });
                 }
@@ -87,10 +84,42 @@ export default function Messages({ currentConversation: $currentConversation }: 
             const isLastAssistantMessage = lastMessage?.role === 'assistant' && lastMessage?.content === "";
             setIsItStreaming(isLastAssistantMessage);
             if (isLastAssistantMessage) {
-                scrollToBottomSignal.set(scrollToBottomSignal.get() + 1);
+                // Force scroll to bottom when streaming starts
+                setTimeout(() => {
+                    const messagesElement = scrollAreaRef.current;
+                    if (messagesElement) {
+                        messagesElement.scrollTo({
+                            top: messagesElement.scrollHeight,
+                            behavior: 'smooth'
+                        });
+                    }
+                }, 50);
             }
         }
     }, [$currentConversation?.messages]);
+
+    // Auto-scroll during streaming when content is being added
+    useEffect(() => {
+        if (isItStreaming && $currentConversation?.messages) {
+            const lastMessage = $currentConversation.messages[$currentConversation.messages.length - 1];
+            if (lastMessage?.role === 'assistant' && lastMessage?.content) {
+                // Only scroll if user is near the bottom to avoid interrupting reading
+                const messagesElement = scrollAreaRef.current;
+                if (messagesElement) {
+                    const { scrollTop, scrollHeight, clientHeight } = messagesElement;
+                    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+                    
+                    // If user is within 100px of bottom, auto-scroll
+                    if (distanceFromBottom < 100) {
+                        messagesElement.scrollTo({
+                            top: messagesElement.scrollHeight,
+                            behavior: 'smooth'
+                        });
+                    }
+                }
+            }
+        }
+    }, [$currentConversation?.messages?.[$currentConversation?.messages?.length - 1]?.content, isItStreaming]); // Listen to content changes of last message
 
     return (
         <div

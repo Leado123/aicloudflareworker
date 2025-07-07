@@ -6,7 +6,7 @@ import { Button } from "./ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import { Label } from "./ui/label";
 import { Input } from "./ui/input";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function TopBar() {
     const { currentMode, switchMode } = useModeSwitcher();
@@ -15,6 +15,25 @@ export default function TopBar() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [windowWidth, setWindowWidth] = useState(0);
+
+    // Check window size to hide API key button on smaller screens
+    useEffect(() => {
+        const checkWindowSize = () => {
+            setWindowWidth(window.innerWidth);
+        };
+
+        // Check on mount
+        checkWindowSize();
+        
+        // Listen for resize events
+        window.addEventListener('resize', checkWindowSize);
+        
+        return () => window.removeEventListener('resize', checkWindowSize);
+    }, []);
+
+    // Hide API key button on smaller screens
+    const shouldShowApiKeyButton = windowWidth >= 1024;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -86,16 +105,17 @@ export default function TopBar() {
                 </TabsList>
             </Tabs>
             <div className="w-full flex justify-end-safe pr-2">
-                <Dialog open={isDialogOpen} onOpenChange={(open) => {
-                    setIsDialogOpen(open);
-                    if (!open) resetForm();
-                }}>
-                    <DialogTrigger asChild>
-                        <button className="flex bg-green-100 p-1 pr-3 pl-3 rounded-full text-sm place-items-center justify-center text-green-700 gap-1 cursor-pointer hover:text-green-800">
-                            Support us with an API Key
-                            <LucideArrowUpRight className="size-4" />
-                        </button>
-                    </DialogTrigger>
+                {shouldShowApiKeyButton && (
+                    <Dialog open={isDialogOpen} onOpenChange={(open) => {
+                        setIsDialogOpen(open);
+                        if (!open) resetForm();
+                    }}>
+                        <DialogTrigger asChild>
+                            <button className="flex bg-green-100 p-1 pr-3 pl-3 rounded-full text-sm place-items-center justify-center text-green-700 gap-1 cursor-pointer hover:text-green-800">
+                                Support us with an API Key
+                                <LucideArrowUpRight className="size-4" />
+                            </button>
+                        </DialogTrigger>
                     <DialogContent className="sm:max-w-[500px]">
                         <DialogHeader>
                             <DialogTitle>Submit Your API Key</DialogTitle>
@@ -202,6 +222,7 @@ export default function TopBar() {
                         </form>
                     </DialogContent>
                 </Dialog>
+                )}
             </div>
 
         </div>

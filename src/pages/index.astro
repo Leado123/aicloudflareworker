@@ -22,8 +22,8 @@ import StoreManager from "@/components/StoreManager";
 	<body class="w-full h-full">
 		<StoreManager client:load>
 			<div class="w-full h-full p-2 gap-2 flex">
-				<SideBar client:visible />
-				<div class="flex-1 flex gap-2 flex-col">
+				<SideBar client:load />
+				<div class="flex-1 flex gap-2 flex-col min-w-0">
 					<TopBar client:only />
 					<Content client:only />
 				</div>

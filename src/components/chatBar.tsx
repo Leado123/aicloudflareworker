@@ -1,12 +1,13 @@
 import { type Conversation } from "@/util/modeDefinitions";
 import { Input } from "./ui/input";
 import { useStore } from "@nanostores/react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, LayoutGroup } from "framer-motion";
 import { LucideArrowDown, LucideArrowRight, LucidePlus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { requestChatMessage, requestChatMessageStream } from "@/util/requestChatMessage";
 import type { CoreMessage } from "ai";
 import { isAtBottomAtom, scrollToBottomSignal } from "./messages";
+import RotatingText from "@/blocks/TextAnimations/RotatingText/RotatingText";
 
 interface ChatBarProps {
     currentConversation: Conversation | null;
@@ -126,12 +127,47 @@ export default function ChatBar({
     return (
         <motion.div
             layout
-            className={`${$conversationEmpty ? `absolute bottom-[40%]` : `absolute bottom-0 left-0 right-0`} w-full p-2 gap-2 flex flex-col place-items-center`}
+            className={$conversationEmpty ? 
+                `absolute inset-0 flex flex-col items-center justify-center px-4` : 
+                `absolute bottom-0 left-0 right-0 w-full p-2 flex flex-col items-center gap-2`}
         >
-            <AnimatePresence> {/* Move above the chat bar */}
+            {/* Initial text when conversation is empty - now part of ChatBar */}
+            {$conversationEmpty && (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.5, ease: "easeInOut" }}
+                    className="mb-8 text-center"
+                >
+                    <LayoutGroup>
+                        <motion.p layout className="text-4xl flex flex-wrap place-items-center justify-center">
+                            <motion.span layout transition={{ type: "spring", damping: 30, stiffness: 400 }}>You can&nbsp;</motion.span>
+                            <RotatingText
+                                texts={['ask a question', 'generate Notion notes', 'make Quizlet flashcards', 'make Knowt flashcards']}
+                                mainClassName="bg-black p-2 text-white rounded-lg"
+                                staggerFrom={"last"} // @ts-expect-error
+                                initial={{ y: "100%" }}
+                                animate={{ y: 0 }}// @ts-expect-error
+                                exit={{ y: "-110%" }}
+                                staggerDuration={0.025}
+                                splitBy="words"
+                                splitLevelClassName="overflow-hidden pb-0.5 sm:pb-1 md:pb-1"
+                                transition={{ type: "spring", damping: 30, stiffness: 400 }}
+                                rotationInterval={2000}
+                            />
+                        </motion.p>
+                    </LayoutGroup>
+                    <p className="text-gray-500 mt-4">
+                        Powered by Gemini & College Success Club Prompt Engineering
+                    </p>
+                </motion.div>
+            )}
+
+            <AnimatePresence> {/* Scroll to bottom button */}
                 {!$isAtBottom && !$conversationEmpty ?
                     <motion.button 
-                        className="absolute border top-[-4em] cursor-pointer p-3 rounded-full backdrop-blur-3xl hover:bg-white/20"
+                        className="absolute border top-[-4em] cursor-pointer p-3 rounded-full backdrop-blur-3xl hover:bg-white/20 transition-colors"
                         onClick={() => {
                             // Trigger scroll signal - Messages component will handle the actual scrolling
                             const currentValue = scrollToBottomSignal.get();
@@ -143,12 +179,15 @@ export default function ChatBar({
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 10 }}
                         title="Scroll to bottom"
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
                     >
                         <LucideArrowDown />
                     </motion.button> : null
                 }
             </AnimatePresence>
-            <div className="w-full max-w-4xl flex backdrop-blur-md bg-[rgba(255,255,255,0.6)] flex-col border gap-2 rounded-3xl p-2">
+            
+            <div className={`w-full max-w-4xl flex backdrop-blur-md bg-[rgba(255,255,255,0.6)] flex-col border gap-2 rounded-3xl p-2 ${$conversationEmpty ? '' : ''}`}>
                 <textarea
                     className="outline-0 text-lg p-2 border-0 shadow-none resize-none"
                     placeholder="Ask ShareSyllabus AI"
@@ -190,7 +229,18 @@ export default function ChatBar({
                     </button>
                 </div>
             </div>
-            <text className="text-xs text-gray-700">We can see all of your chat requests, we can do what we want with it. Therefore, beware of the content you send like passwords or secrets.</text>
+            
+            {$conversationEmpty && (
+                <p className="text-xs text-gray-700 mt-4 text-center max-w-2xl">
+                    We can see all of your chat requests, we can do what we want with it. Therefore, beware of the content you send like passwords or secrets.
+                </p>
+            )}
+            
+            {!$conversationEmpty && (
+                <p className="text-xs text-gray-700">
+                    We can see all of your chat requests, we can do what we want with it. Therefore, beware of the content you send like passwords or secrets.
+                </p>
+            )}
         </motion.div>
     );
 }
