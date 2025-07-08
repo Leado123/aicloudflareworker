@@ -22,7 +22,7 @@ import StoreManager from "@/components/StoreManager";
 	<body class="w-full h-full">
 			<div class="w-full h-full gap-2 flex">
 				<Sidebar client:load />
-				<div class="flex-1 flex p-2 pl-0.5 gap-2 flex-col min-w-0">
+				<div class="flex-1 flex p-2 pl-0.5 gap-2 flex-col min-w-0 transition-all duration-300 ease-in-out">
 					<TopBar client:load />
 					<StoreManager client:load>
 						<Content client:only />

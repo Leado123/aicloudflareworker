@@ -22,8 +22,10 @@ function SideBar() {
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [isAutoHidden, setIsAutoHidden] = useState(false);
     const [windowWidth, setWindowWidth] = useState(0);
+    const [isMouseNearLeft, setIsMouseNearLeft] = useState(false);
+    const [previousSidebarState, setPreviousSidebarState] = useState(false); // Store previous state for calculator mode
 
-    // In calculator mode, sidebar should always overlay (never take up layout space)
+    // In calculator mode, sidebar should always be in drawer mode
     const isCalculatorMode = currentMode === 'calculator';
     
     // Determine if sidebar should be shown 
@@ -37,9 +39,8 @@ function SideBar() {
             const width = window.innerWidth;
             setWindowWidth(width);
             
-            // In calculator mode, never auto-hide (always use overlay)
-            // For other modes, auto-hide on smaller screens
-            const shouldAutoHide = !isCalculatorMode && width < 1024;
+            // Auto-hide on smaller screens (sidepanel/half-screen mode)
+            const shouldAutoHide = width < 1024;
             setIsAutoHidden(shouldAutoHide);
         };
 
@@ -49,6 +50,17 @@ function SideBar() {
         // Listen for resize events
         window.addEventListener('resize', checkWindowSize);
         
+        // Mouse proximity detection for left edge
+        const handleMouseMove = (e: MouseEvent) => {
+            const isNearLeft = e.clientX <= 128; // Within 128px of left edge (half drawer width)
+            setIsMouseNearLeft(isNearLeft);
+        };
+
+        // Add mouse listener when sidebar is collapsed
+        if (isCollapsed && !isAutoHidden) {
+            window.addEventListener('mousemove', handleMouseMove);
+        }
+        
         // Listen for topbar toggle
         const handleTopbarToggle = () => {
             setIsCollapsed(prev => !prev);
@@ -57,10 +69,23 @@ function SideBar() {
         
         return () => {
             window.removeEventListener('resize', checkWindowSize);
+            window.removeEventListener('mousemove', handleMouseMove);
             // Remove the listener
             sidebarToggleListeners = sidebarToggleListeners.filter(listener => listener !== handleTopbarToggle);
         };
-    }, [isCalculatorMode]); // Add isCalculatorMode to dependencies
+    }, [isCollapsed, isAutoHidden]); // Update dependencies
+
+    // Handle calculator mode transitions
+    useEffect(() => {
+        if (isCalculatorMode) {
+            // Entering calculator mode - save current state but don't force drawer mode
+            setPreviousSidebarState(isCollapsed);
+            // Calculator mode can now use both layout and drawer modes
+        } else {
+            // Exiting calculator mode - restore previous state
+            setIsCollapsed(previousSidebarState);
+        }
+    }, [isCalculatorMode]); // Only run when calculator mode changes
 
     // Get icon for mode
     const getModeIcon = (modeKey: ModeKey) => {
@@ -165,120 +190,34 @@ function SideBar() {
 
     return (
         <div className="relative">
-            {/* Regular sidebar for non-calculator modes */}
-            {!isCalculatorMode && (
-                <AnimatePresence mode="wait">
-                    {shouldShowSidebar && (
-                        <motion.div
-                            initial={{ width: 0, opacity: 0 }}
-                            animate={{ width: 256, opacity: 1 }}
-                            exit={{ width: 0, opacity: 0 }}
-                            transition={{ 
-                                type: "spring",
-                                stiffness: 300,
-                                damping: 30,
-                                mass: 0.8
+            {/* Toggle buttons - always visible and static */}
+            <div className="fixed top-2.5 left-2.5 z-50 flex items-center gap-2">
+                {shouldShowSidebar ? (
+                    <>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                                setIsCollapsed(true);
+                                // If mouse is in hover area when collapsing, maintain hover state
+                                if (e.clientX <= 128) {
+                                    setIsMouseNearLeft(true);
+                                }
                             }}
-                            className="overflow-hidden"
+                            className="h-8 w-8 p-0 rounded-full bg-white text-black border hover:bg-gray-100 shadow-sm"
                         >
-                            <div className="w-64 bg-slate-50  text-gray-300 fixed p-2.5 pr-2 pb-2 border-r flex flex-col h-full">
-                                <div className="pb-2 flex place-items-center rounded-lg">
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => setIsCollapsed(!isCollapsed)}
-                                        className="h-8 w-8 p-0 rounded-full bg-white text-black border hover:bg-gray-100"
-                                    >
-                                        <LucideChevronLeft size={16} />
-                                    </Button>
-                                </div>
-                                
-                                <div className="flex-1 overflow-y-auto  space-y-4">
-                                    {Object.keys(allModes)
-                                        .filter(modeKey => modeKey !== 'calculator') // Exclude calculator since it doesn't use entities
-                                        .map((modeKey) => (
-                                            <ModeEntityList key={modeKey} modeKey={modeKey as ModeKey} />
-                                        ))}
-                                </div>
-
-                                <div className="pt-2 border-t">
-                                    <text className="text-xs text-gray-500">
-                                        All data stored locally ✨
-                                    </text>
-                                </div>
-                            </div>
+                            <LucideChevronLeft size={16} />
+                        </Button>
+                        <motion.div
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -10 }}
+                            className="text-sm font-medium text-gray-700 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-md shadow-sm border"
+                        >
+                            Workspace
                         </motion.div>
-                    )}
-                </AnimatePresence>
-            )}
-
-            {/* Overlay sidebar for calculator mode */}
-            {isCalculatorMode && (
-                <AnimatePresence>
-                    {shouldShowSidebar && (
-                        <>
-                            {/* Backdrop */}
-                            <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                className="fixed inset-0 bg-black/20 z-40"
-                                onClick={() => setIsCollapsed(true)}
-                            />
-                            
-                            {/* Sidebar */}
-                            <motion.div
-                                initial={{ x: -256, opacity: 0 }}
-                                animate={{ x: 0, opacity: 1 }}
-                                exit={{ x: -256, opacity: 0 }}
-                                transition={{ 
-                                    type: "spring",
-                                    stiffness: 400,
-                                    damping: 35,
-                                    mass: 0.9
-                                }}
-                                className="fixed top-0 left-0 h-full z-50"
-                            >
-                                <div className="w-64 h-full bg-gray-50 p-2 pt-2 border-r flex flex-col shadow-lg relative">
-                                    <div className="pb-2 flex place-items-center rounded-lg">
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => setIsCollapsed(true)}
-                                            className="h-8 w-8 p-0 hover:bg-gray-100"
-                                        >
-                                            <LucideX size={16} />
-                                        </Button>
-                                    </div>
-                                    
-                                    <div className="flex-1 overflow-y-auto space-y-4">
-                                        {Object.keys(allModes)
-                                            .filter(modeKey => modeKey !== 'calculator')
-                                            .map((modeKey) => (
-                                                <ModeEntityList key={modeKey} modeKey={modeKey as ModeKey} />
-                                            ))}
-                                    </div>
-
-                                    <div className="pt-2 border-t">
-                                        <text className="text-xs text-gray-500">
-                                            All data stored locally ✨
-                                        </text>
-                                    </div>
-                                </div>
-                            </motion.div>
-                        </>
-                    )}
-                </AnimatePresence>
-            )}
-
-            {/* Toggle button when sidebar is completely hidden */}
-            {isCollapsed && (
-                <motion.div 
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="fixed top-2.5 left-2.5 z-20"
-                >
+                    </>
+                ) : (
                     <Button
                         variant="ghost"
                         size="sm"
@@ -287,6 +226,107 @@ function SideBar() {
                     >
                         <LucideMenu size={16} />
                     </Button>
+                )}
+            </div>
+
+            {/* Ghost sidebar - invisible but affects layout */}
+            {!isAutoHidden && (
+                <motion.div
+                    animate={{
+                        width: shouldShowSidebar ? 256 : 0
+                    }}
+                    transition={{ 
+                        type: "spring",
+                        stiffness: 400,
+                        damping: 40,
+                        mass: 0.8
+                    }}
+                    className="invisible overflow-hidden"
+                    style={{ height: "100%" }}
+                />
+            )}
+
+            {/* Visible floating sidebar - always positioned fixed with morphing animation */}
+            {!isAutoHidden && (
+                <motion.div
+                    key="morphing-sidebar"
+                    animate={{
+                        opacity: shouldShowSidebar || isMouseNearLeft ? 1 : 0,
+                        x: shouldShowSidebar || isMouseNearLeft ? 0 : -256,
+                        height: shouldShowSidebar ? "100vh" : "calc(100vh - 6rem)",
+                        top: shouldShowSidebar ? "0" : "3rem"
+                    }}
+                    initial={{
+                        opacity: shouldShowSidebar ? 1 : 0,
+                        x: shouldShowSidebar ? 0 : -256,
+                        height: shouldShowSidebar ? "100vh" : "calc(100vh - 6rem)",
+                        top: shouldShowSidebar ? "0" : "3rem"
+                    }}
+                    transition={{ 
+                        type: "spring",
+                        stiffness: 400,
+                        damping: 35,
+                        mass: 0.9
+                    }}
+                    className="fixed left-0 z-40"
+                    onMouseLeave={() => !shouldShowSidebar && setIsMouseNearLeft(false)}
+                >
+                    <motion.div 
+                        className="w-64 h-full shadow-sm bg-gray-50 text-gray-300 flex flex-col relative"
+                        animate={{
+                            borderRadius: shouldShowSidebar ? "0px" : "0px 12px 12px 0px",
+                            paddingTop: shouldShowSidebar ? "3rem" : "2.5rem",
+                            paddingLeft: "10px",
+                            paddingRight: "8px",
+                            paddingBottom: "8px",
+                        }}
+                        initial={{
+                            borderRadius: shouldShowSidebar ? "0px" : "0px 12px 12px 0px",
+                            paddingTop: shouldShowSidebar ? "3rem" : "2.5rem",
+                            paddingLeft: "10px",
+                            paddingRight: "8px",
+                            paddingBottom: "8px"
+                        }}
+                        transition={{ 
+                            type: "spring",
+                            stiffness: 400,
+                            damping: 35
+                        }}
+                    >
+                        {/* Sidebar title - shows in drawer mode */}
+                        <div className="pb-2 flex place-items-center rounded-lg">
+                            {!shouldShowSidebar && (
+                                <motion.div
+                                    initial={{ opacity: 0, x: -20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, x: -20 }}
+                                    transition={{ 
+                                        type: "spring",
+                                        stiffness: 400,
+                                        damping: 35,
+                                        delay: 0.1
+                                    }}
+                                    className="w-full text-center text-sm font-medium text-gray-700 py-1"
+                                >
+                                    Workspace
+                                </motion.div>
+                            )}
+                        </div>
+                        
+                        <div className="flex-1 overflow-y-auto space-y-4">
+                            {Object.keys(allModes)
+                                .filter(modeKey => modeKey !== 'calculator')
+                                .map((modeKey) => (
+                                    <ModeEntityList key={modeKey} modeKey={modeKey as ModeKey} />
+                                ))}
+                        </div>
+
+                        <div className="pt-2 border-t">
+                            <text className="text-xs text-gray-500">
+                                All data stored locally ✨
+                            </text>
+                        </div>
+                    </motion.div>
                 </motion.div>
             )}
         </div>
