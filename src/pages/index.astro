@@ -1,7 +1,7 @@
 ---
 import TopBar from "@/components/topbar";
-import SideBar from "../components/sidebar";
 import "../styles/global.css";
+import Sidebar from "@/components/sidebar"
 import Content from "@/components/content";
 import { conversations } from "@/util/store";
 import StoreManager from "@/components/StoreManager";
@@ -20,14 +20,14 @@ import StoreManager from "@/components/StoreManager";
 		<title>SS Studio</title>
 	</head>
 	<body class="w-full h-full">
-		<StoreManager client:load>
-			<div class="w-full h-full p-2 gap-2 flex">
-				<SideBar client:load />
-				<div class="flex-1 flex gap-2 flex-col min-w-0">
-					<TopBar client:only />
-					<Content client:only />
+			<div class="w-full h-full gap-2 flex">
+				<Sidebar client:load />
+				<div class="flex-1 flex p-2 pl-0.5 gap-2 flex-col min-w-0">
+					<TopBar client:load />
+					<StoreManager client:load>
+						<Content client:only />
+					</StoreManager>
 				</div>
 			</div>
-		</StoreManager>
 	</body>
 </html>

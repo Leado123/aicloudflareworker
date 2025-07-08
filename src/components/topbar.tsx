@@ -1,4 +1,4 @@
-import { LucideArrowUpRight, LucideHandHelping, LucideMessageCircle, LucidePencilRuler, LucideSparkles, LucideLoader2, LucideCalculator } from "lucide-react";
+import { LucideArrowUpRight, LucideHandHelping, LucideMessageCircle, LucidePencilRuler, LucideSparkles, LucideLoader2, LucideCalculator, LucideMenu } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
 import { useModeSwitcher } from "./ModeProvider";
 import { allModes } from "@/util/modes";
@@ -7,6 +7,7 @@ import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, Di
 import { Label } from "./ui/label";
 import { Input } from "./ui/input";
 import { useState, useEffect } from "react";
+import { toggleSidebarFromTopbar } from "./sidebar";
 
 export default function TopBar() {
     const { currentMode, switchMode } = useModeSwitcher();
@@ -86,7 +87,8 @@ export default function TopBar() {
 
     return (
         <div className="w-full grid grid-cols-3 place-items-center">
-            <div>
+            <div className="justify-self-start">
+                
             </div>
             <Tabs value={currentMode} onValueChange={value => switchMode(value as typeof currentMode)} className="w-full grid- flex place-items-center ">
                 <TabsList>
