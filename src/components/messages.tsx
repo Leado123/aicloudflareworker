@@ -2,7 +2,6 @@ import { type Conversation } from "@/util/modeDefinitions";
 import { atom } from "nanostores";
 import { useStore } from "@nanostores/react";
 import { useEffect, useRef, useState } from "react";
-import { useInView } from "react-intersection-observer";
 import Markdown from "./markdown";
 import { Button } from "./ui/button";
 import { LucideThumbsDown, LucideThumbsUp } from "lucide-react";
@@ -22,20 +21,34 @@ export default function Messages({ currentConversation: $currentConversation }: 
     const $scrollToBottomSignal = useStore(scrollToBottomSignal);
     const [isItStreaming, setIsItStreaming] = useState<boolean | null>(false);
     const scrollAreaRef = useRef<HTMLDivElement>(null);
-    
+    const [isAtBottomState, setIsAtBottomState] = useState(true);
 
-    // Use Intersection Observer to detect when we're at the bottom
-    const { ref: bottomSentinelRef, inView: isAtBottom } = useInView({
-        threshold: 0,
-        rootMargin: '0px',
-        root: scrollAreaRef.current, // Use the messages container as the root
-    });
-
-    // Update the nanostore when the bottom visibility changes
+    // Manual scroll detection instead of intersection observer
     useEffect(() => {
-        isAtBottomAtom.set(isAtBottom);
-        console.log('Bottom sentinel inView:', isAtBottom);
-    }, [isAtBottom]);
+        const handleScroll = () => {
+            const messagesElement = scrollAreaRef.current;
+            if (messagesElement) {
+                const { scrollTop, scrollHeight, clientHeight } = messagesElement;
+                const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+                const isAtBottom = distanceFromBottom < 10; // 10px threshold
+                
+                setIsAtBottomState(isAtBottom);
+                isAtBottomAtom.set(isAtBottom);
+                console.log('Scroll detected - at bottom:', isAtBottom, 'distance:', distanceFromBottom);
+            }
+        };
+
+        const messagesElement = scrollAreaRef.current;
+        if (messagesElement) {
+            messagesElement.addEventListener('scroll', handleScroll);
+            // Check initial state
+            handleScroll();
+            
+            return () => {
+                messagesElement.removeEventListener('scroll', handleScroll);
+            };
+        }
+    }, [$currentConversation?.messages?.length]);
 
     // Listen to scroll signal from ChatBar button
     useEffect(() => {
@@ -65,7 +78,7 @@ export default function Messages({ currentConversation: $currentConversation }: 
 
     // Auto-scroll to bottom when new messages are added and user is already at bottom
     useEffect(() => {
-        if ($currentConversation?.messages && isAtBottom && scrollAreaRef.current) {
+        if ($currentConversation?.messages && isAtBottomState && scrollAreaRef.current) {
             setTimeout(() => {
                 const messagesElement = scrollAreaRef.current;
                 if (messagesElement) {
@@ -187,13 +200,8 @@ export default function Messages({ currentConversation: $currentConversation }: 
                     );
                 }) || <div className="text-gray-500 text-center">No messages yet.</div>}
 
-                {/* Bottom sentinel element - when this is visible, we're at the bottom */}
-                <div className={`h-50`}></div>
-                <div 
-                    ref={bottomSentinelRef} 
-                    className="h-1 w-full" 
-                    style={{ height: '1px' }}
-                />
+                {/* Spacer for scroll area */}
+                <div className="h-4"></div>
             </div>
         </div>
     );

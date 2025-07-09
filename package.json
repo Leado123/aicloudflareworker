@@ -20,6 +20,7 @@
     "@editorjs/editorjs": "^2.30.8",
     "@editorjs/header": "^2.8.8",
     "@icons-pack/react-simple-icons": "^13.1.0",
+    "@iframe-resizer/react": "^5.4.7",
     "@milkdown/crepe": "^7.13.2",
     "@milkdown/kit": "^7.13.2",
     "@milkdown/react": "^7.13.2",
