@@ -26,6 +26,8 @@ export default function ChatBar({
 
     const [inputValue, setInputValue] = useState("");
     
+    console.log('CHATBAR DEBUG - isAtBottom:', $isAtBottom, 'conversationEmpty:', $conversationEmpty, 'show button?', !$isAtBottom && !$conversationEmpty);
+    
     const generateTitleFromMessage = (message: string): string => {
         const truncated = message.trim().substring(0, 20);
         return truncated.length < message.trim().length ? truncated + "..." : truncated;
@@ -165,29 +167,31 @@ export default function ChatBar({
             )}
 
             <AnimatePresence> {/* Scroll to bottom button */}
-                {!$isAtBottom && !$conversationEmpty ?
+                {/* Temporarily always show for debugging */}
+                {!$conversationEmpty && !$isAtBottom && (
                     <motion.button 
-                        className="absolute border top-[-4em] cursor-pointer p-3 rounded-full backdrop-blur-3xl hover:bg-white/20 transition-colors"
+                        className="absolute top-[-4em] cursor-pointer p-3 rounded-full backdrop-blur-lg border shadow"
                         onClick={() => {
+                            console.log('SCROLL BUTTON CLICKED');
                             // Trigger scroll signal - Messages component will handle the actual scrolling
                             const currentValue = scrollToBottomSignal.get();
                             const newValue = currentValue + 1;
-                            console.log('ChatBar button clicked, signal changing from', currentValue, 'to', newValue);
+                            console.log('Signal changing from', currentValue, 'to', newValue);
                             scrollToBottomSignal.set(newValue);
                         }}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 10 }}
-                        title="Scroll to bottom"
+                        title={`Scroll to bottom (isAtBottom: ${$isAtBottom})`}
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                     >
-                        <LucideArrowDown />
-                    </motion.button> : null
-                }
+                        <LucideArrowDown className="w-5 h-5 text-black" />
+                    </motion.button>
+                )}
             </AnimatePresence>
             
-            <div className={`w-full max-w-4xl flex backdrop-blur-md bg-[rgba(255,255,255,0.6)] flex-col border gap-2 rounded-3xl p-2 ${$conversationEmpty ? '' : ''}`}>
+            <div className={`w-full max-w-4xl shadow flex bg-white flex-col border gap-2 rounded-3xl p-2 ${$conversationEmpty ? '' : ''}`}>
                 <textarea
                     className="outline-0 text-lg p-2 border-0 shadow-none resize-none"
                     placeholder="Ask ShareSyllabus AI"

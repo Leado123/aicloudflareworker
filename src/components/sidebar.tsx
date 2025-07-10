@@ -50,14 +50,15 @@ function SideBar() {
         // Listen for resize events
         window.addEventListener('resize', checkWindowSize);
         
-        // Mouse proximity detection for left edge
+        // Mouse proximity detection for left edge - should work when sidebar is hidden
         const handleMouseMove = (e: MouseEvent) => {
             const isNearLeft = e.clientX <= 128; // Within 128px of left edge (half drawer width)
             setIsMouseNearLeft(isNearLeft);
         };
 
-        // Add mouse listener when sidebar is collapsed
-        if (isCollapsed && !isAutoHidden) {
+        // Add mouse listener when sidebar is not fully shown
+        // This covers: collapsed in full-size mode OR auto-hidden in half-size mode
+        if (isCollapsed || isAutoHidden) {
             window.addEventListener('mousemove', handleMouseMove);
         }
         
@@ -73,7 +74,7 @@ function SideBar() {
             // Remove the listener
             sidebarToggleListeners = sidebarToggleListeners.filter(listener => listener !== handleTopbarToggle);
         };
-    }, [isCollapsed, isAutoHidden]); // Update dependencies
+    }, [isCollapsed, isAutoHidden, shouldShowSidebar]); // Update dependencies
 
     // Handle calculator mode transitions
     useEffect(() => {
@@ -246,89 +247,92 @@ function SideBar() {
                 />
             )}
 
-            {/* Visible floating sidebar - always positioned fixed with morphing animation */}
-            {!isAutoHidden && (
-                <motion.div
-                    key="morphing-sidebar"
+            {/* Visible floating sidebar - shows in different scenarios */}
+            <motion.div
+                key="morphing-sidebar"
+                animate={{
+                    opacity: shouldShowSidebar || isMouseNearLeft ? 1 : 0,
+                    x: shouldShowSidebar || isMouseNearLeft ? 0 : -256,
+                    height: shouldShowSidebar && !isAutoHidden ? "100vh" : "calc(100vh - 6rem)",
+                    top: shouldShowSidebar && !isAutoHidden ? "0" : "3rem"
+                }}
+                initial={{
+                    opacity: shouldShowSidebar ? 1 : 0,
+                    x: shouldShowSidebar ? 0 : -256,
+                    height: shouldShowSidebar && !isAutoHidden ? "100vh" : "calc(100vh - 6rem)",
+                    top: shouldShowSidebar && !isAutoHidden ? "0" : "3rem"
+                }}
+                transition={{ 
+                    type: "spring",
+                    stiffness: 400,
+                    damping: 35,
+                    mass: 0.9
+                }}
+                className="fixed left-0 z-40"
+                onMouseLeave={() => {
+                    // Only hide on mouse leave if sidebar is not permanently shown
+                    if (!shouldShowSidebar) {
+                        setIsMouseNearLeft(false);
+                    }
+                }}
+            >
+                <motion.div 
+                    className="w-64 h-full shadow-sm bg-gray-50 text-gray-300 flex flex-col relative"
                     animate={{
-                        opacity: shouldShowSidebar || isMouseNearLeft ? 1 : 0,
-                        x: shouldShowSidebar || isMouseNearLeft ? 0 : -256,
-                        height: shouldShowSidebar ? "100vh" : "calc(100vh - 6rem)",
-                        top: shouldShowSidebar ? "0" : "3rem"
+                        borderRadius: shouldShowSidebar && !isAutoHidden ? "0px" : "0px 12px 12px 0px",
+                        paddingTop: shouldShowSidebar && !isAutoHidden ? "3rem" : "2.5rem",
+                        paddingLeft: "10px",
+                        paddingRight: "8px",
+                        paddingBottom: "8px",
                     }}
                     initial={{
-                        opacity: shouldShowSidebar ? 1 : 0,
-                        x: shouldShowSidebar ? 0 : -256,
-                        height: shouldShowSidebar ? "100vh" : "calc(100vh - 6rem)",
-                        top: shouldShowSidebar ? "0" : "3rem"
+                        borderRadius: shouldShowSidebar && !isAutoHidden ? "0px" : "0px 12px 12px 0px",
+                        paddingTop: shouldShowSidebar && !isAutoHidden ? "3rem" : "2.5rem",
+                        paddingLeft: "10px",
+                        paddingRight: "8px",
+                        paddingBottom: "8px"
                     }}
                     transition={{ 
                         type: "spring",
                         stiffness: 400,
-                        damping: 35,
-                        mass: 0.9
+                        damping: 35
                     }}
-                    className="fixed left-0 z-40"
-                    onMouseLeave={() => !shouldShowSidebar && setIsMouseNearLeft(false)}
                 >
-                    <motion.div 
-                        className="w-64 h-full shadow-sm bg-gray-50 text-gray-300 flex flex-col relative"
-                        animate={{
-                            borderRadius: shouldShowSidebar ? "0px" : "0px 12px 12px 0px",
-                            paddingTop: shouldShowSidebar ? "3rem" : "2.5rem",
-                            paddingLeft: "10px",
-                            paddingRight: "8px",
-                            paddingBottom: "8px",
-                        }}
-                        initial={{
-                            borderRadius: shouldShowSidebar ? "0px" : "0px 12px 12px 0px",
-                            paddingTop: shouldShowSidebar ? "3rem" : "2.5rem",
-                            paddingLeft: "10px",
-                            paddingRight: "8px",
-                            paddingBottom: "8px"
-                        }}
-                        transition={{ 
-                            type: "spring",
-                            stiffness: 400,
-                            damping: 35
-                        }}
-                    >
-                        {/* Sidebar title - shows in drawer mode */}
-                        <div className="pb-2 flex place-items-center rounded-lg">
-                            {!shouldShowSidebar && (
-                                <motion.div
-                                    initial={{ opacity: 0, x: -20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0, x: -20 }}
-                                    transition={{ 
-                                        type: "spring",
-                                        stiffness: 400,
-                                        damping: 35,
-                                        delay: 0.1
-                                    }}
-                                    className="w-full text-center text-sm font-medium text-gray-700 py-1"
-                                >
-                                    Workspace
-                                </motion.div>
-                            )}
-                        </div>
-                        
-                        <div className="flex-1 overflow-y-auto space-y-4">
-                            {Object.keys(allModes)
-                                .filter(modeKey => modeKey !== 'calculator')
-                                .map((modeKey) => (
-                                    <ModeEntityList key={modeKey} modeKey={modeKey as ModeKey} />
-                                ))}
-                        </div>
+                    {/* Sidebar title - shows when not in full layout mode */}
+                    <div className="pb-2 flex place-items-center rounded-lg">
+                        {(!shouldShowSidebar || isAutoHidden) && (
+                            <motion.div
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -20 }}
+                                transition={{ 
+                                    type: "spring",
+                                    stiffness: 400,
+                                    damping: 35,
+                                    delay: 0.1
+                                }}
+                                className="w-full text-center text-sm font-medium text-gray-700 py-1"
+                            >
+                                Workspace
+                            </motion.div>
+                        )}
+                    </div>
+                    
+                    <div className="flex-1 overflow-y-auto space-y-4">
+                        {Object.keys(allModes)
+                            .filter(modeKey => modeKey !== 'calculator')
+                            .map((modeKey) => (
+                                <ModeEntityList key={modeKey} modeKey={modeKey as ModeKey} />
+                            ))}
+                    </div>
 
-                        <div className="pt-2 border-t">
-                            <text className="text-xs text-gray-500">
-                                All data stored locally ✨
-                            </text>
-                        </div>
-                    </motion.div>
+                    <div className="pt-2 border-t">
+                        <text className="text-xs text-gray-500">
+                            All data stored locally ✨
+                        </text>
+                    </div>
                 </motion.div>
-            )}
+            </motion.div>
         </div>
     );
 }

@@ -6,6 +6,7 @@ import Markdown from "./markdown";
 import { Button } from "./ui/button";
 import { LucideThumbsDown, LucideThumbsUp } from "lucide-react";
 import { AIResponse } from "./ui/kibo-ui/ai/response";
+import { motion, LayoutGroup } from "framer-motion";
 
 // Create a nanostore atom to track if messages are at the bottom
 export const isAtBottomAtom = atom<boolean>(true);
@@ -26,47 +27,63 @@ export default function Messages({ currentConversation: $currentConversation }: 
     // Manual scroll detection instead of intersection observer
     useEffect(() => {
         const handleScroll = () => {
-            const messagesElement = scrollAreaRef.current;
-            if (messagesElement) {
-                const { scrollTop, scrollHeight, clientHeight } = messagesElement;
+            // Look for the ScrollArea viewport element (which is the actual scrolling container)
+            const scrollAreaViewport = scrollAreaRef.current?.closest('[data-radix-scroll-area-viewport]') ||
+                                     scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+            
+            console.log('SCROLL DEBUG - found viewport:', !!scrollAreaViewport);
+            
+            if (scrollAreaViewport) {
+                const { scrollTop, scrollHeight, clientHeight } = scrollAreaViewport;
                 const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
-                const isAtBottom = distanceFromBottom < 10; // 10px threshold
+                
+                // If content is shorter than container, we're always "at bottom"
+                // Otherwise, check if we're within 10px of the bottom
+                const isAtBottom = scrollHeight <= clientHeight || distanceFromBottom < 10;
+                
+                console.log('SCROLL DEBUG:', { isAtBottom, distanceFromBottom, scrollTop, scrollHeight, clientHeight });
                 
                 setIsAtBottomState(isAtBottom);
                 isAtBottomAtom.set(isAtBottom);
-                console.log('Scroll detected - at bottom:', isAtBottom, 'distance:', distanceFromBottom);
             }
         };
 
-        const messagesElement = scrollAreaRef.current;
-        if (messagesElement) {
-            messagesElement.addEventListener('scroll', handleScroll);
+        // Find the actual scrolling element (ScrollArea viewport)
+        const scrollAreaViewport = document.querySelector('[data-radix-scroll-area-viewport]');
+        console.log('SETUP SCROLL LISTENER - found viewport:', !!scrollAreaViewport);
+        
+        if (scrollAreaViewport) {
+            scrollAreaViewport.addEventListener('scroll', handleScroll);
             // Check initial state
             handleScroll();
             
             return () => {
-                messagesElement.removeEventListener('scroll', handleScroll);
+                scrollAreaViewport.removeEventListener('scroll', handleScroll);
             };
         }
     }, [$currentConversation?.messages?.length]);
 
     // Listen to scroll signal from ChatBar button
     useEffect(() => {
-        console.log('Scroll signal changed:', $scrollToBottomSignal);
+        console.log('SCROLL SIGNAL CHANGED:', $scrollToBottomSignal);
         if ($scrollToBottomSignal > 0) {
-            console.log('Attempting to scroll to bottom...');
+            console.log('ATTEMPTING TO SCROLL TO BOTTOM...');
             
-            const messagesElement = scrollAreaRef.current;
+            // Find the ScrollArea viewport element (which is the actual scrolling container)
+            const scrollAreaViewport = document.querySelector('[data-radix-scroll-area-viewport]');
             
-            if (messagesElement) {
-                console.log('Messages element scrollHeight:', messagesElement.scrollHeight);
-                console.log('Messages element clientHeight:', messagesElement.clientHeight);
-                
-                // Scroll the messages container itself
-                messagesElement.scrollTo({
-                    top: messagesElement.scrollHeight,
+            if (scrollAreaViewport) {
+                console.log('Element found, scrolling...', {
+                    scrollHeight: scrollAreaViewport.scrollHeight,
+                    clientHeight: scrollAreaViewport.clientHeight
+                });
+                // Scroll the viewport element
+                scrollAreaViewport.scrollTo({
+                    top: scrollAreaViewport.scrollHeight,
                     behavior: 'smooth'
                 });
+            } else {
+                console.log('NO SCROLL AREA VIEWPORT FOUND');
             }
             
             // Reset the signal after scrolling
@@ -80,15 +97,27 @@ export default function Messages({ currentConversation: $currentConversation }: 
     useEffect(() => {
         if ($currentConversation?.messages && isAtBottomState && scrollAreaRef.current) {
             setTimeout(() => {
-                const messagesElement = scrollAreaRef.current;
-                if (messagesElement) {
-                    messagesElement.scrollTo({
-                        top: messagesElement.scrollHeight,
+                const scrollAreaViewport = document.querySelector('[data-radix-scroll-area-viewport]');
+                if (scrollAreaViewport) {
+                    scrollAreaViewport.scrollTo({
+                        top: scrollAreaViewport.scrollHeight,
                         behavior: 'smooth'
                     });
                 }
             }, 100);
         }
+        
+        // Also re-check scroll position when messages change
+        setTimeout(() => {
+            const scrollAreaViewport = document.querySelector('[data-radix-scroll-area-viewport]');
+            if (scrollAreaViewport) {
+                const { scrollTop, scrollHeight, clientHeight } = scrollAreaViewport;
+                const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+                const isAtBottom = scrollHeight <= clientHeight || distanceFromBottom < 10;
+                setIsAtBottomState(isAtBottom);
+                isAtBottomAtom.set(isAtBottom);
+            }
+        }, 150);
     }, [$currentConversation?.messages?.length]);
 
     useEffect(() => {
@@ -99,10 +128,10 @@ export default function Messages({ currentConversation: $currentConversation }: 
             if (isLastAssistantMessage) {
                 // Force scroll to bottom when streaming starts
                 setTimeout(() => {
-                    const messagesElement = scrollAreaRef.current;
-                    if (messagesElement) {
-                        messagesElement.scrollTo({
-                            top: messagesElement.scrollHeight,
+                    const scrollAreaViewport = document.querySelector('[data-radix-scroll-area-viewport]');
+                    if (scrollAreaViewport) {
+                        scrollAreaViewport.scrollTo({
+                            top: scrollAreaViewport.scrollHeight,
                             behavior: 'smooth'
                         });
                     }
@@ -117,15 +146,15 @@ export default function Messages({ currentConversation: $currentConversation }: 
             const lastMessage = $currentConversation.messages[$currentConversation.messages.length - 1];
             if (lastMessage?.role === 'assistant' && lastMessage?.content) {
                 // Only scroll if user is near the bottom to avoid interrupting reading
-                const messagesElement = scrollAreaRef.current;
-                if (messagesElement) {
-                    const { scrollTop, scrollHeight, clientHeight } = messagesElement;
+                const scrollAreaViewport = document.querySelector('[data-radix-scroll-area-viewport]');
+                if (scrollAreaViewport) {
+                    const { scrollTop, scrollHeight, clientHeight } = scrollAreaViewport;
                     const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
                     
                     // If user is within 100px of bottom, auto-scroll
                     if (distanceFromBottom < 100) {
-                        messagesElement.scrollTo({
-                            top: messagesElement.scrollHeight,
+                        scrollAreaViewport.scrollTo({
+                            top: scrollAreaViewport.scrollHeight,
                             behavior: 'smooth'
                         });
                     }
@@ -141,6 +170,7 @@ export default function Messages({ currentConversation: $currentConversation }: 
             data-messages-container="true"
         >
             <div className="w-full max-w-4xl mx-auto">
+                <LayoutGroup>
                 {$currentConversation?.messages.map((message, index) => {
                     const isLastAssistantMessage = message.role === 'assistant' &&
                         index === $currentConversation.messages.length - 1;
@@ -201,7 +231,8 @@ export default function Messages({ currentConversation: $currentConversation }: 
                 }) || <div className="text-gray-500 text-center">No messages yet.</div>}
 
                 {/* Spacer for scroll area */}
-                <div className="h-4"></div>
+                <motion.div className={`${isItStreaming ? "h-4/5" : ""}`}></motion.div>
+                </LayoutGroup>
             </div>
         </div>
     );
