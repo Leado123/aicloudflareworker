@@ -1,4 +1,4 @@
-import { LucideMessageCircle, LucidePlus, LucideX, LucideSparkles, LucidePencilRuler, LucideHome, LucideFlag, LucideSettings, LucideMenu, LucideChevronLeft } from "lucide-react";
+import { LucideMessageCircle, LucidePlus, LucideX, LucideSparkles, LucidePencilRuler, LucideHome, LucideFlag, LucideSettings, LucideMenu, LucideChevronLeft, LucideTrash } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card";
@@ -22,7 +22,7 @@ function SideBar() {
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [isAutoHidden, setIsAutoHidden] = useState(false);
     const [windowWidth, setWindowWidth] = useState(0);
-    const [isMouseNearLeft, setIsMouseNearLeft] = useState(false);
+    const [isMouseInBounds, setIsMouseInBounds] = useState(false);
     const [previousSidebarState, setPreviousSidebarState] = useState(false); // Store previous state for calculator mode
 
     // In calculator mode, sidebar should always be in drawer mode
@@ -50,18 +50,6 @@ function SideBar() {
         // Listen for resize events
         window.addEventListener('resize', checkWindowSize);
         
-        // Mouse proximity detection for left edge - should work when sidebar is hidden
-        const handleMouseMove = (e: MouseEvent) => {
-            const isNearLeft = e.clientX <= 128; // Within 128px of left edge (half drawer width)
-            setIsMouseNearLeft(isNearLeft);
-        };
-
-        // Add mouse listener when sidebar is not fully shown
-        // This covers: collapsed in full-size mode OR auto-hidden in half-size mode
-        if (isCollapsed || isAutoHidden) {
-            window.addEventListener('mousemove', handleMouseMove);
-        }
-        
         // Listen for topbar toggle
         const handleTopbarToggle = () => {
             setIsCollapsed(prev => !prev);
@@ -70,11 +58,10 @@ function SideBar() {
         
         return () => {
             window.removeEventListener('resize', checkWindowSize);
-            window.removeEventListener('mousemove', handleMouseMove);
             // Remove the listener
             sidebarToggleListeners = sidebarToggleListeners.filter(listener => listener !== handleTopbarToggle);
         };
-    }, [isCollapsed, isAutoHidden, shouldShowSidebar]); // Update dependencies
+    }, []); // Update dependencies
 
     // Handle calculator mode transitions
     useEffect(() => {
@@ -133,9 +120,9 @@ function SideBar() {
         };
 
         return (
-            <div className="gap-2 rounded-lg flex text-sm text-slate-600 flex-col">
+            <div className="gap-2 rounded-lg flex text-stone-900 flex-col">
                 <div className="flex items-center justify-between">
-                    <div className="flex p-2 items-center text-slate-600 text-xs gap-2">
+                    <div className="flex p-2 items-center  text-xs gap-2">
                         
                         <text className="font-medium ">{mode.displayName}</text>
                     </div>
@@ -146,7 +133,7 @@ function SideBar() {
                             e.preventDefault();
                             handleNewEntity();
                         }}
-                        className="h-6 w-6 p-0 hover:text-gray-800"
+                        className="h-6 w-6 p-0 hover:text-gray-800 pa"
                     >
                         <LucidePlus size={14} />
                     </Button>
@@ -161,7 +148,7 @@ function SideBar() {
                         {[...entities].reverse().map((entity: BaseEntity) => (
                             <div 
                                 key={entity.id} 
-                                className={`flex cursor-pointer gap-2 justify-center hover:bg-gray-200 rounded-md p-2 items-center ${
+                                className={`flex cursor-pointer gap-2 justify-center hover:bg-gray-200 group rounded-md p-2 pr-1.5 items-center ${
                                     currentMode === modeKey ? '' : ''
                                 }`}
                                 onClick={() => handleSelectEntity(entity.id)}
@@ -170,17 +157,15 @@ function SideBar() {
                                 <button className="truncate cursor-pointer block flex-1 text-left">
                                     {entity.title || `Untitled ${mode.displayName.toLowerCase()}`}
                                 </button>
-                                <motion.button
-                                    className="ml-auto flex-shrink-0 cursor-pointer  hover:text-gray-700"
-                                    whileHover={{ scale: 1.1 }}
-                                    whileTap={{ scale: 0.95 }}
+                                <button
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         handleDeleteEntity(entity.id);
                                     }}
+                                    className="group-hover:opacity-100 opacity-0"
                                 >
-                                    <LucideX size={14} />
-                                </motion.button>
+                                    <LucideTrash size={14} />
+                                </button>
                             </div>
                         ))}
                     </div>
@@ -200,9 +185,9 @@ function SideBar() {
                             size="sm"
                             onClick={(e) => {
                                 setIsCollapsed(true);
-                                // If mouse is in hover area when collapsing, maintain hover state
-                                if (e.clientX <= 128) {
-                                    setIsMouseNearLeft(true);
+                                // If mouse is in trigger area when collapsing, maintain bounds state
+                                if (e.clientX <= (isCalculatorMode ? 10 : 100)) {
+                                    setIsMouseInBounds(true);
                                 }
                             }}
                             className="h-8 w-8 p-0 rounded-full bg-white text-black border hover:bg-gray-100 shadow-sm"
@@ -230,6 +215,22 @@ function SideBar() {
                 )}
             </div>
 
+            {/* Sidebar trigger zone - narrow detection area */}
+            {(isCollapsed || isAutoHidden) && !isMouseInBounds && (
+                <div
+                    className="fixed left-0 z-30"
+                    style={{
+                        width: isCalculatorMode ? 10 : 100, // Narrow trigger zone
+                        height: "100vh",
+                        top: "0",
+                        backgroundColor: "transparent"
+                    }}
+                    onMouseEnter={() => {
+                        setIsMouseInBounds(true);
+                    }}
+                />
+            )}
+
             {/* Ghost sidebar - invisible but affects layout */}
             {!isAutoHidden && (
                 <motion.div
@@ -250,9 +251,14 @@ function SideBar() {
             {/* Visible floating sidebar - shows in different scenarios */}
             <motion.div
                 key="morphing-sidebar"
+                onMouseLeave={() => {
+                    if (isCollapsed || isAutoHidden) {
+                        setIsMouseInBounds(false);
+                    }
+                }}
                 animate={{
-                    opacity: shouldShowSidebar || isMouseNearLeft ? 1 : 0,
-                    x: shouldShowSidebar || isMouseNearLeft ? 0 : -256,
+                    opacity: shouldShowSidebar || isMouseInBounds ? 1 : 0,
+                    x: shouldShowSidebar || isMouseInBounds ? 0 : -256,
                     height: shouldShowSidebar && !isAutoHidden ? "100vh" : "calc(100vh - 6rem)",
                     top: shouldShowSidebar && !isAutoHidden ? "0" : "3rem"
                 }}
@@ -269,15 +275,9 @@ function SideBar() {
                     mass: 0.9
                 }}
                 className="fixed left-0 z-40"
-                onMouseLeave={() => {
-                    // Only hide on mouse leave if sidebar is not permanently shown
-                    if (!shouldShowSidebar) {
-                        setIsMouseNearLeft(false);
-                    }
-                }}
             >
                 <motion.div 
-                    className="w-64 h-full shadow-sm bg-gray-50 text-gray-300 flex flex-col relative"
+                    className="w-64 h-full shadow-inner border-r bg-neutral-50 text-gray-300 flex flex-col relative"
                     animate={{
                         borderRadius: shouldShowSidebar && !isAutoHidden ? "0px" : "0px 12px 12px 0px",
                         paddingTop: shouldShowSidebar && !isAutoHidden ? "3rem" : "2.5rem",
@@ -328,7 +328,7 @@ function SideBar() {
 
                     <div className="pt-2 border-t">
                         <text className="text-xs text-gray-500">
-                            All data stored locally ✨
+                            Made mostly by Leo Wen
                         </text>
                     </div>
                 </motion.div>

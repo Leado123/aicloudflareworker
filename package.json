@@ -13,6 +13,7 @@
   "dependencies": {
     "@ai-sdk/cerebras": "^0.2.14",
     "@ai-sdk/google": "^1.2.19",
+    "@ai-sdk/react": "^1.2.12",
     "@ariakit/react": "^0.4.17",
     "@astrojs/node": "9.3.0",
     "@astrojs/react": "^4.3.0",
