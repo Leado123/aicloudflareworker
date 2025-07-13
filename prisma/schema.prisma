@@ -8,14 +8,65 @@ generator client {
 }
 
 model APIKeys {
-    id        String   @id @default(cuid())
-    key       String   @unique
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-    type      KeyType  @default(GEMINI)
+  id        String   @id @default(cuid())
+  key       String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  type      KeyType  @default(GEMINI)
+}
+
+model SpanishEntities {
+  id                    String   @id @default(cuid())
+  createdAt             DateTime @default(now())
+  name                  String
+  conjugationQuestions  ConjugationQuestion[]
+  genderedWordQuestions GenderedWordQuestion[]
+}
+
+model ConjugationQuestion {
+  id                                  String           @id @default(cuid())
+  conjugatedVerbAnswer                String
+  conjugationTense                    ConjugationTense
+  verbInInfiniteTense                 String
+  hasGerund                           Boolean
+  sentenceWithVerb                    String?
+  exampleSentenceWithDifferentPronoun String?
+
+  SpanishEntities SpanishEntities[]
+}
+
+model GenderedWordQuestion {
+  id             String  @id @default(cuid())
+  noun           String
+  correctArticle String
+
+  SpanishEntities SpanishEntities[]
 }
 
 enum KeyType {
-    GEMINI
-    CEREBRAS
+  GEMINI
+  CEREBRAS
+}
+
+enum ConjugationTense {
+  Preterite
+  Imperfect
+  Conditional
+  Future
+  AffirmativeImperative
+  NegativeImperative
+  PresentSubjunctive
+  ImperfectSubjunctive
+  PresentProgressive
+  PreteriteProgressive
+  ImperfectProgressive
+  ConditionalProgressive
+  FutureProgressive
+  PresentPerfect
+  PastPerfect
+  ConditionalPerfect
+  FuturePerfect
+  PresentPerfectSubjunctive
+  PastPerfectSubjunctive
+  InformalFuture
 }

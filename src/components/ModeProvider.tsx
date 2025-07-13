@@ -196,7 +196,7 @@ export function useModeEntities<T extends BaseEntity>(modeKey: ModeKey) {
 export function useModeSwitcher() {
     return {
         currentMode: useStore(currentMode),
-        switchMode: (newMode: ModeKey) => currentMode.set(newMode),
+        switchMode: (newMode: ModeKey ) => currentMode.set(newMode), //
         availableModes: Object.keys(allModes) as ModeKey[]
     };
 }

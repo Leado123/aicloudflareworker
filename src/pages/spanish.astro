@@ -1,0 +1,28 @@
+---
+import SpanishComponent from "@/components/spanish"
+import "../styles/global.css";
+
+---
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" type="image/svg+xml" href="https://i.redd.it/id-please-ik-its-a-meme-im-not-joking-v0-pveese881gna1.jpg?width=720&format=pjpg&auto=webp&s=e42849d3a376792cd8e86347615e9eb47396ec76" />
+
+		<link rel="stylesheet" href="https://use.typekit.net/jbl5rvj.css">
+        
+
+		<meta name="viewport" content="width=device-width" />
+		<meta name="generator" content={Astro.generator} />
+		<title>SS Spanish</title>
+	</head>
+	<body class="w-full h-full">
+        <div class="w-full h-full place-items-center justify-center flex">
+            <div class="w-1/2 h-1/2 flex flex-col">
+                <h1 class="text-4xl text-purple-500 text-center">Spanish Mode</h1>
+                <div class="flex-1">
+                    <SpanishComponent client:only />
+                </div>
+            </div>
+        </div>
+    </body>
+</html>
