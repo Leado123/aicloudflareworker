@@ -30,12 +30,12 @@ interface ConjugationResponse {
 
 /**
  * Generate Spanish conjugation questions
- * @param count - Number of questions to generate (default: 5)
+ * @param arrayLength - Number of questions to generate (default: 5)
  * @param difficulty - Difficulty level: 'beginner', 'intermediate', 'advanced'
  * @returns Promise<ConjugationResponse>
  */
 async function generateConjugationQuestions(
-  count: number = 5,
+  arrayLength: number = 5,
   difficulty: string = "intermediate"
 ): Promise<ConjugationResponse> {
   try {
@@ -45,7 +45,7 @@ async function generateConjugationQuestions(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        count,
+        arrayLength,
         difficulty,
       }),
     });

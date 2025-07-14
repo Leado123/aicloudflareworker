@@ -70,8 +70,8 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     // Get the request body
     const body = await request.json();
-    const { count = 5, difficulty = "intermediate" } = body as {
-      count?: number;
+    const { arrayLength = 5, difficulty = "intermediate" } = body as {
+      arrayLength?: number;
       difficulty?: string;
     };
 
@@ -103,34 +103,57 @@ export const POST: APIRoute = async ({ request }) => {
     const trace = langfuse.trace({
       name: "spanish-conjugation-generation",
       metadata: {
-        count,
+        arrayLength,
         difficulty,
         apiKey: currentApiKey.substring(0, 10) + "...", // Log partial key for debugging
       },
     });
 
-    const generation = trace.generation({
-      name: "generate-conjugation-questions",
-      model: "gemini-2.0-flash",
-      input: {
-        prompt:
-          conjugationPrompt?.prompt || "Generate Spanish conjugation questions",
-        parameters: { count, difficulty },
-      },
-    });
+    // Define available tenses for the prompt
+    const availableTenses = [
+      "Preterite",
+      "Imperfect",
+      "Conditional",
+      "Future",
+      "AffirmativeImperative",
+      "NegativeImperative",
+      "PresentSubjunctive",
+      "ImperfectSubjunctive",
+      "PresentProgressive",
+      "PreteriteProgressive",
+      "ImperfectProgressive",
+      "ConditionalProgressive",
+      "FutureProgressive",
+      "PresentPerfect",
+      "PastPerfect",
+      "ConditionalPerfect",
+      "FuturePerfect",
+      "PresentPerfectSubjunctive",
+      "PastPerfectSubjunctive",
+      "InformalFuture",
+    ].join(", ");
 
-    // Prepare the prompt with variables
-    const promptText =
+    // Prepare the prompt with template variable substitution
+    let promptText =
       conjugationPrompt?.prompt ||
-      `
-      Generate EXACTLY ${count} Spanish conjugation questions for ${difficulty} level students.
+      `Generate EXACTLY {{arrayLength}} Spanish conjugation questions for ${difficulty} level students.`;
 
-      IMPORTANT: You must generate exactly ${count} questions, no more, no less.
+    // Substitute template variables
+    if (conjugationPrompt?.prompt) {
+      promptText = conjugationPrompt.prompt
+        .replace(/\{\{arrayLength\}\}/g, arrayLength.toString())
+        .replace(/\{\{tenses\}\}/g, availableTenses);
+    } else {
+      // Fallback prompt if Langfuse prompt is not available
+      promptText = `
+      Generate EXACTLY ${arrayLength} Spanish conjugation questions for ${difficulty} level students.
+
+      IMPORTANT: You must generate exactly ${arrayLength} questions, no more, no less.
 
       For each question, provide:
       - A unique ID (numbered 1, 2, 3, etc.)
       - The conjugated verb as the answer
-      - The conjugation tense (use these exact values: Preterite, Imperfect, Conditional, Future, AffirmativeImperative, NegativeImperative, PresentSubjunctive, ImperfectSubjunctive, PresentProgressive, PreteriteProgressive, ImperfectProgressive, ConditionalProgressive, FutureProgressive, PresentPerfect, PastPerfect, ConditionalPerfect, FuturePerfect, PresentPerfectSubjunctive, PastPerfectSubjunctive, InformalFuture)
+      - The conjugation tense (use these exact values: ${availableTenses})
       - The infinitive form of the verb
       - Whether the verb form uses a gerund (true/false)
       - An example sentence using the conjugated verb
@@ -139,8 +162,18 @@ export const POST: APIRoute = async ({ request }) => {
       Mix different tenses and include common irregular verbs.
       Make sure the questions are appropriate for ${difficulty} level Spanish learners.
 
-      Remember: Generate EXACTLY ${count} questions.
+      Remember: Generate EXACTLY ${arrayLength} questions.
     `;
+    }
+
+    const generation = trace.generation({
+      name: "generate-conjugation-questions",
+      model: "gemini-2.0-flash",
+      input: {
+        prompt: promptText,
+        parameters: { arrayLength, difficulty, tenses: availableTenses },
+      },
+    });
 
     // Generate structured output using AI SDK
     const result = await generateObject({
@@ -151,7 +184,7 @@ export const POST: APIRoute = async ({ request }) => {
     });
 
     // Enforce the exact count by slicing the results
-    const questions = result.object.questions.slice(0, count);
+    const questions = result.object.questions.slice(0, arrayLength);
 
     // Update the result object
     result.object.questions = questions;
@@ -231,13 +264,13 @@ export const GET: APIRoute = ({ params, request }) => {
       usage: {
         endpoint: "POST /api/spanish",
         parameters: {
-          count:
+          arrayLength:
             "number (optional, default: 5) - Number of questions to generate",
           difficulty:
             "string (optional, default: 'intermediate') - Difficulty level",
         },
         example: {
-          count: 3,
+          arrayLength: 3,
           difficulty: "beginner",
         },
       },
@@ -258,13 +291,13 @@ export const HEAD: APIRoute = ({ params, request }) => {
       usage: {
         endpoint: "POST /api/spanish",
         parameters: {
-          count:
+          arrayLength:
             "number (optional, default: 5) - Number of questions to generate",
           difficulty:
             "string (optional, default: 'intermediate') - Difficulty level",
         },
         example: {
-          count: 3,
+          arrayLength: 3,
           difficulty: "beginner",
         },
       },

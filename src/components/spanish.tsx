@@ -104,7 +104,7 @@ export default function Spanish() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [difficulty, setDifficulty] = useState("intermediate");
-  const [questionCount, setQuestionCount] = useState(5);
+  const [questionCount, setQuestionCount] = useState(15);
   const [quizState, setQuizState] = useState<QuizState>({
     currentIndex: 0,
     userAnswers: [],
@@ -134,7 +134,7 @@ export default function Spanish() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          count: questionCount,
+          arrayLength: questionCount,
           difficulty: difficulty,
         }),
       });
@@ -180,7 +180,10 @@ export default function Spanish() {
       }));
       // Focus the input for the next question
       setTimeout(() => {
-        inputRef.current?.focus();
+        if (inputRef.current) {
+          inputRef.current.focus();
+          inputRef.current.select();
+        }
       }, 100);
     }
   };
@@ -194,7 +197,10 @@ export default function Spanish() {
       }));
       // Focus the input for the previous question
       setTimeout(() => {
-        inputRef.current?.focus();
+        if (inputRef.current) {
+          inputRef.current.focus();
+          inputRef.current.select();
+        }
       }, 100);
     }
   };
@@ -244,11 +250,15 @@ export default function Spanish() {
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      if (
-        !quizState.answerChecked &&
-        quizState.userAnswers[quizState.currentIndex]?.trim()
-      ) {
-        checkAnswer();
+      if (!quizState.answerChecked && currentAnswer.trim()) {
+        // Automatically check the answer when Enter is pressed
+        setQuizState((prev) => ({ ...prev, answerChecked: true }));
+        // Keep focus on input for next Enter press
+        setTimeout(() => {
+          if (inputRef.current) {
+            inputRef.current.focus();
+          }
+        }, 100);
       } else if (quizState.answerChecked) {
         if (quizState.currentIndex < questions.length - 1) {
           nextQuestion();
@@ -259,13 +269,51 @@ export default function Spanish() {
     }
   };
 
-  const hollowOutSentence = (sentence: string, conjugatedVerb: string) => {
+  const renderSentenceWithInput = (
+    sentence: string,
+    conjugatedVerb: string
+  ) => {
     if (!sentence || !conjugatedVerb) return sentence;
-    
-    let match = new RegExp(conjugatedVerb, "gi");
-    sentence = sentence.replace(match, "_".repeat(conjugatedVerb.length));
-    
-    return sentence;
+
+    const parts = sentence.split(new RegExp(`(${conjugatedVerb})`, "gi"));
+    let replacementIndex = 0;
+
+    return parts.map((part, index) => {
+      if (part.toLowerCase() === conjugatedVerb.toLowerCase()) {
+        replacementIndex++;
+        if (replacementIndex === 1) {
+          // Only replace the first occurrence with input
+          const inputClassName = quizState.answerChecked
+            ? isCorrect
+              ? "bg-green-100 border-green-500 text-green-800"
+              : "bg-red-100 border-red-500 text-red-800"
+            : "border-gray-300";
+
+          return (
+            <input
+              key={index}
+              ref={inputRef}
+              type="text"
+              value={
+                quizState.answerChecked && !isCorrect
+                  ? conjugatedVerb
+                  : currentAnswer
+              }
+              onChange={(e) =>
+                !quizState.answerChecked && handleAnswerChange(e.target.value)
+              }
+              onKeyPress={handleKeyPress}
+              className={`inline-block px-2 py-1 border rounded text-center font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 ${inputClassName}`}
+              style={{ width: `${Math.max(conjugatedVerb.length * 12, 80)}px` }}
+              readOnly={quizState.answerChecked}
+              autoFocus={!quizState.answerChecked}
+              tabIndex={0}
+            />
+          );
+        }
+      }
+      return <span key={index}>{part}</span>;
+    });
   };
 
   // Focus input when component mounts or question changes
@@ -274,6 +322,15 @@ export default function Spanish() {
       inputRef.current.focus();
     }
   }, [questions, quizState.currentIndex]);
+
+  // Keep focus on input after answer is checked
+  useEffect(() => {
+    if (quizState.answerChecked && inputRef.current) {
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+    }
+  }, [quizState.answerChecked]);
 
   const currentQuestion = questions[quizState.currentIndex];
   const currentAnswer = quizState.userAnswers[quizState.currentIndex] || "";
@@ -307,76 +364,60 @@ export default function Spanish() {
           <CardContent className="space-y-6">
             {/* Demo Section - Show when no questions loaded */}
             {questions.length === 0 && !loading && (
-              <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200 mb-6">
-                <h3 className="text-sm font-medium text-yellow-800 mb-3">
-                  🎯 Demo: Hollowing Out Function (Testing Accent Characters)
+              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200 mb-6">
+                <h3 className="text-sm font-medium text-blue-800 mb-3">
+                  📝 How to Use the Quiz
                 </h3>
                 <div className="space-y-3 text-sm">
-                  {/* Test 1: Accented verb */}
-                  <div className="grid grid-cols-1 gap-1 p-2 bg-white rounded border">
-                    <div>
-                      <strong>Test 1 - Accented verb:</strong>
+                  <div className="p-3 bg-white rounded border">
+                    <div className="mb-2">
+                      <strong>Instructions:</strong>
                     </div>
-                    <div>Original: "Yo hablé con mi padre ayer."</div>
-                    <div>Verb: "hablé"</div>
-                    <div className="text-blue-600">
-                      Result: "
-                      {hollowOutSentence(
-                        "Yo hablé con mi padre ayer.",
-                        "hablé"
-                      )}
-                      "
-                    </div>
+                    <ul className="list-disc list-inside space-y-1 text-gray-700">
+                      <li>
+                        <strong>Type directly in the sentence:</strong> The
+                        textbox appears where the verb should go
+                      </li>
+                      <li>
+                        <strong>Press Enter to submit:</strong> No need to click
+                        any buttons
+                      </li>
+                      <li>
+                        <strong>Correct answers:</strong> Turn the textbox green
+                      </li>
+                      <li>
+                        <strong>Wrong answers:</strong> Show the correct answer
+                        in red
+                      </li>
+                      <li>
+                        <strong>Use accent buttons:</strong> Click the buttons
+                        below to add special characters
+                      </li>
+                      <li>
+                        <strong>Question counts:</strong> Choose from 15, 50, or
+                        75 questions
+                      </li>
+                    </ul>
                   </div>
 
-                  {/* Test 2: Compound verb */}
-                  <div className="grid grid-cols-1 gap-1 p-2 bg-white rounded border">
-                    <div>
-                      <strong>Test 2 - Compound verb:</strong>
+                  <div className="p-2 bg-white rounded border">
+                    <div className="mb-2">
+                      <strong>Example sentence:</strong>
                     </div>
-                    <div>Original: "Estoy hablando por teléfono."</div>
-                    <div>Verb: "estoy hablando"</div>
-                    <div className="text-blue-600">
-                      Result: "
-                      {hollowOutSentence(
-                        "Estoy hablando por teléfono.",
-                        "estoy hablando"
-                      )}
-                      "
+                    <div className="text-lg">
+                      Yo{" "}
+                      <input
+                        type="text"
+                        placeholder="hablé"
+                        className="inline-block px-2 py-1 border border-gray-300 rounded text-center"
+                        style={{ width: "80px" }}
+                        disabled
+                      />{" "}
+                      con mi padre ayer.
                     </div>
-                  </div>
-
-                  {/* Test 3: More accents */}
-                  <div className="grid grid-cols-1 gap-1 p-2 bg-white rounded border">
-                    <div>
-                      <strong>Test 3 - More accents:</strong>
-                    </div>
-                    <div>Original: "Él comió una pizza deliciosa."</div>
-                    <div>Verb: "comió"</div>
-                    <div className="text-blue-600">
-                      Result: "
-                      {hollowOutSentence(
-                        "Él comió una pizza deliciosa.",
-                        "comió"
-                      )}
-                      "
-                    </div>
-                  </div>
-
-                  {/* Test 4: No accents */}
-                  <div className="grid grid-cols-1 gap-1 p-2 bg-white rounded border">
-                    <div>
-                      <strong>Test 4 - Regular verb:</strong>
-                    </div>
-                    <div>Original: "Nosotros caminamos al parque."</div>
-                    <div>Verb: "caminamos"</div>
-                    <div className="text-blue-600">
-                      Result: "
-                      {hollowOutSentence(
-                        "Nosotros caminamos al parque.",
-                        "caminamos"
-                      )}
-                      "
+                    <div className="text-xs text-gray-500 mt-1">
+                      (In practice, you'll type your answer directly in the
+                      textbox)
                     </div>
                   </div>
                 </div>
@@ -401,7 +442,7 @@ export default function Spanish() {
             <div className="space-y-3">
               <label className="text-sm font-medium">Number of Questions</label>
               <div className="flex gap-2">
-                {[3, 5, 10, 15].map((count) => (
+                {[15, 50, 75].map((count) => (
                   <Button
                     key={count}
                     variant={questionCount === count ? "default" : "outline"}
@@ -558,14 +599,16 @@ export default function Spanish() {
                 </span>
               </div>
 
-              {/* Hollowed-out Sentence */}
+              {/* Sentence with Integrated Input */}
               {currentQuestion.sentenceWithVerb && (
                 <div className="p-4 bg-gray-50 rounded-lg border-2 border-gray-300">
                   <p className="text-sm text-gray-600 mb-2">
-                    Fill in the blank:
+                    {!quizState.answerChecked
+                      ? "Type your answer directly in the textbox below and press Enter:"
+                      : "Answer submitted:"}
                   </p>
                   <p className="text-xl text-gray-800 font-medium">
-                    {hollowOutSentence(
+                    {renderSentenceWithInput(
                       currentQuestion.sentenceWithVerb,
                       currentQuestion.conjugatedVerbAnswer
                     )}
@@ -573,68 +616,48 @@ export default function Spanish() {
                 </div>
               )}
 
-              {/* Input Section */}
-              <div className="space-y-4">
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={currentAnswer}
-                  onChange={(e) => handleAnswerChange(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Enter your answer..."
-                  className="w-full max-w-md mx-auto px-4 py-3 text-lg border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  disabled={quizState.answerChecked && mode === "quiz"}
-                />
-
-                {/* Accent Buttons */}
-                <div className="flex justify-center gap-1 flex-wrap">
-                  {ACCENT_BUTTONS.map((accent) => (
-                    <Button
-                      key={accent.char}
-                      variant="outline"
-                      size="sm"
-                      onClick={() => insertAccent(accent.char)}
-                      className="min-w-8 h-8 p-1"
-                    >
-                      {accent.label}
-                    </Button>
-                  ))}
-                </div>
-
-                {/* Check Answer Button */}
-                {!quizState.answerChecked && currentAnswer.trim() && (
-                  <Button onClick={checkAnswer} className="mt-2">
-                    Check Answer (Press Enter)
+              {/* Accent Buttons */}
+              <div className="flex justify-center gap-1 flex-wrap">
+                {ACCENT_BUTTONS.map((accent) => (
+                  <Button
+                    key={accent.char}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => insertAccent(accent.char)}
+                    className="min-w-8 h-8 p-1"
+                  >
+                    {accent.label}
                   </Button>
-                )}
-
-                {/* Answer Feedback */}
-                {quizState.answerChecked && (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-center gap-2">
-                      {isCorrect ? (
-                        <CheckCircle2 className="w-6 h-6 text-green-600" />
-                      ) : (
-                        <XCircle className="w-6 h-6 text-red-600" />
-                      )}
-                      <span className="text-lg font-medium">
-                        {isCorrect ? "Correct!" : "Incorrect"}
-                      </span>
-                    </div>
-
-                    {!isCorrect && (
-                      <div className="text-center">
-                        <span className="text-sm text-gray-600">
-                          Correct answer:{" "}
-                          <span className="font-medium text-green-600">
-                            {currentQuestion.conjugatedVerbAnswer}
-                          </span>
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )}
+                ))}
               </div>
+
+              {/* Answer Feedback */}
+              {quizState.answerChecked && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-center gap-2">
+                    {isCorrect ? (
+                      <CheckCircle2 className="w-6 h-6 text-green-600" />
+                    ) : (
+                      <XCircle className="w-6 h-6 text-red-600" />
+                    )}
+                    <span className="text-lg font-medium">
+                      {isCorrect ? "Correct!" : "Incorrect"}
+                    </span>
+                  </div>
+                  <div className="text-sm text-gray-500 text-center">
+                    {quizState.currentIndex < questions.length - 1
+                      ? "Press Enter to continue to next question"
+                      : "Press Enter to finish quiz"}
+                  </div>
+                </div>
+              )}
+
+              {/* Input hint when not answered */}
+              {!quizState.answerChecked && currentAnswer.trim() && (
+                <div className="text-sm text-gray-500 text-center">
+                  Press Enter to submit your answer
+                </div>
+              )}
 
               {/* Example with Different Pronoun */}
               {currentQuestion.exampleSentenceWithDifferentPronoun && (
