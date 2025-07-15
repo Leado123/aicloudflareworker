@@ -3,19 +3,15 @@ import type { APIRoute } from "astro";
 
 const prisma = new PrismaClient();
 
-export const POST: APIRoute = async ({ params, request }) => {
+export const GET: APIRoute = async ({ params, request }) => {
   try {
-    const body = await request.json();
-    const { name, questionIds } = body as {
-      name: string;
-      questionIds: string[];
-    };
+    const { id } = params;
 
-    if (!name || !questionIds || questionIds.length === 0) {
+    if (!id) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: "Name and questionIds are required",
+          error: "ID parameter is required",
         }),
         {
           status: 400,
@@ -26,19 +22,30 @@ export const POST: APIRoute = async ({ params, request }) => {
       );
     }
 
-    // Create a new Spanish entity with the selected questions
-    const spanishEntity = await prisma.spanishEntities.create({
-      data: {
-        name,
-        conjugationQuestions: {
-          connect: questionIds.map((id) => ({ id })),
-        },
+    const spanishEntity = await prisma.spanishEntities.findUnique({
+      where: {
+        id: id as string,
       },
       include: {
         conjugationQuestions: true,
         genderedWordQuestions: true,
       },
     });
+
+    if (!spanishEntity) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Spanish quiz not found",
+        }),
+        {
+          status: 404,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    }
 
     return new Response(
       JSON.stringify({
@@ -52,7 +59,7 @@ export const POST: APIRoute = async ({ params, request }) => {
       }
     );
   } catch (error) {
-    console.error("Error creating Spanish quiz:", error);
+    console.error("Error fetching Spanish quiz:", error);
 
     return new Response(
       JSON.stringify({

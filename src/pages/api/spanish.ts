@@ -4,6 +4,7 @@ import { generateObject } from "ai";
 import { z } from "zod";
 import Langfuse from "langfuse";
 import APIKeyManager from "@/util/apiKeyManager";
+import { PrismaClient } from "@prisma/client";
 
 // This route must be rendered on the server (SSR) to handle dynamic requests.
 export const prerender = false;
@@ -17,6 +18,9 @@ const langfuse = new Langfuse({
 
 // Initialize API key manager
 const apiKeyManager = APIKeyManager.getInstance();
+
+// Initialize Prisma client
+const prisma = new PrismaClient();
 
 export enum ConjugationTense {
   Preterite = "Preterite",
@@ -198,6 +202,36 @@ export const POST: APIRoute = async ({ request }) => {
         totalTokens: result.usage?.totalTokens || 0,
       },
     });
+
+    // Save questions to database
+    try {
+      const spanishEntity = await prisma.spanishEntities.create({
+        data: {
+          name: `Spanish Quiz - ${difficulty} (${
+            new Date().toISOString().split("T")[0]
+          })`,
+          conjugationQuestions: {
+            create: result.object.questions.map((q) => ({
+              conjugatedVerbAnswer: q.conjugatedVerbAnswer,
+              conjugationTense: q.conjugationTense,
+              verbInInfiniteTense: q.verbInInfiniteTense,
+              hasGerund: q.hasGerund,
+              sentenceWithVerb: q.sentenceWithVerb,
+              exampleSentenceWithDifferentPronoun:
+                q.exampleSentenceWithDifferentPronoun,
+            })),
+          },
+        },
+        include: {
+          conjugationQuestions: true,
+        },
+      });
+
+      console.log(`Saved Spanish entity with ID: ${spanishEntity.id}`);
+    } catch (dbError) {
+      console.error("Error saving to database:", dbError);
+      // Continue with response even if database save fails
+    }
 
     // Rotate to next API key after successful completion
     apiKeyManager.rotateToNextKey();

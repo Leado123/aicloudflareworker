@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import GradientText from "@/components/reactbits/GradientText/GradientText";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Card,
   CardContent,
@@ -29,6 +31,14 @@ interface ConjugationQuestion {
   exampleSentenceWithDifferentPronoun?: string;
 }
 
+interface SpanishEntity {
+  id: string;
+  name: string;
+  createdAt: string;
+  conjugationQuestions: ConjugationQuestion[];
+  genderedWordQuestions: any[];
+}
+
 interface ConjugationResponse {
   success: boolean;
   questions?: ConjugationQuestion[];
@@ -50,6 +60,17 @@ interface QuizState {
   showResults: boolean;
   score: number;
   answerChecked: boolean;
+}
+
+interface PregeneratedQuizzesResponse {
+  success: boolean;
+  data?: SpanishEntity[];
+  metadata?: {
+    count: number;
+    take: number;
+    skip: number;
+  };
+  error?: string;
 }
 
 const DIFFICULTIES = [
@@ -113,15 +134,85 @@ export default function Spanish() {
     answerChecked: false,
   });
   const [mode, setMode] = useState<"practice" | "quiz">("practice");
+  const [pregeneratedQuizzes, setPregeneratedQuizzes] = useState<
+    SpanishEntity[]
+  >([]);
+  const [loadingPregenerated, setLoadingPregenerated] = useState(false);
+  const [showPregenerated] = useState(true);
+  const [loadingQuizId, setLoadingQuizId] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isQuizOrPracticeMode, setIsQuizOrPracticeMode] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    fetchPregeneratedQuizzes();
+  }, []);
+
+  const fetchPregeneratedQuizzes = async () => {
+    setLoadingPregenerated(true);
+    try {
+      const response = await fetch("/api/spanish/getList?take=10&skip=0");
+      const data: PregeneratedQuizzesResponse = await response.json();
+
+      if (data.success && data.data) {
+        setPregeneratedQuizzes(data.data);
+      } else {
+        setError(data.error || "Failed to fetch pregenerated quizzes");
+      }
+    } catch (err) {
+      setError("Failed to fetch pregenerated quizzes");
+      console.error("Error fetching pregenerated quizzes:", err);
+    } finally {
+      setLoadingPregenerated(false);
+    }
+  };
+
+  const loadPregeneratedQuiz = async (quiz: SpanishEntity) => {
+    setLoadingQuizId(quiz.id);
+    setError(null);
+
+    try {
+      // Transform the database questions to match the expected format
+      const transformedQuestions: ConjugationQuestion[] =
+        quiz.conjugationQuestions.map((q) => ({
+          id: q.id,
+          conjugatedVerbAnswer: q.conjugatedVerbAnswer,
+          conjugationTense: q.conjugationTense,
+          verbInInfiniteTense: q.verbInInfiniteTense,
+          hasGerund: q.hasGerund,
+          sentenceWithVerb: q.sentenceWithVerb,
+          exampleSentenceWithDifferentPronoun:
+            q.exampleSentenceWithDifferentPronoun,
+        }));
+
+      setQuestions(transformedQuestions);
+      setIsQuizOrPracticeMode(true);
+      setQuizState({
+        currentIndex: 0,
+        userAnswers: new Array(transformedQuestions.length).fill(""),
+        showResults: false,
+        score: 0,
+        answerChecked: false,
+      });
+    } catch (err) {
+      setError(
+        `Failed to load quiz "${quiz.name}": ${
+          err instanceof Error ? err.message : "Unknown error"
+        }`
+      );
+      console.error("Error loading pregenerated quiz:", err);
+    } finally {
+      setLoadingQuizId(null);
+    }
+  };
 
   const generateQuestions = async () => {
     setLoading(true);
     setError(null);
-    setQuestions([]);
+    setSuccessMessage(null);
     setQuizState({
       currentIndex: 0,
-      userAnswers: [],
+      userAnswers: new Array(questionCount).fill(""),
       showResults: false,
       score: 0,
       answerChecked: false,
@@ -339,90 +430,148 @@ export default function Spanish() {
     currentQuestion?.conjugatedVerbAnswer.toLowerCase().trim();
 
   return (
-    <div className="w-full max-w-4xl mx-auto p-6 space-y-6">
-      <div className="text-center space-y-2">
-        <h1 className="text-3xl font-bold text-gray-900">
-          Spanish Conjugation Practice
-        </h1>
-        <p className="text-gray-600">
-          Master Spanish verb conjugations with AI-powered questions
-        </p>
-      </div>
+    <div className="w-3/4 h-screen flex flex-col justify-center items-center p-6 space-y-6">
+      {/* Success Message */}
+      {successMessage && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+          <div className="flex items-center">
+            <CheckCircle2 className="w-5 h-5 text-green-600 mr-2" />
+            <span className="text-green-800 font-medium">{successMessage}</span>
+          </div>
+        </div>
+      )}
 
       {/* Configuration Panel */}
       {questions.length === 0 && !loading && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+        <div>
+          <div className="w-full flex flex-col items-center mb-6">
+            <GradientText
+              className="text-2xl md:text-3xl font-extrabold py-2 px-4 mb-4"
+              colors={["#ffaa40", "#9c40ff", "#40ffd9", "#ffaa40"]}
+              animationSpeed={6}
+              showBorder={true}
+            >
+              <span>
+                🚀 Welcome to the Ultimate Spanish Practice App!
+                <br />
+                <span className="text-base font-medium">
+                  Instantly generate custom quizzes, practice conjugations, and
+                  access a library of pregenerated challenges.
+                  <br />
+                  Track your progress, get instant feedback, and level up your
+                  Spanish skills with AI-powered questions!
+                </span>
+              </span>
+            </GradientText>
+            <div className="flex items-center gap-2 text-lg font-semibold mb-2">
               <BookOpen className="w-5 h-5" />
               Configure Your Practice Session
-            </CardTitle>
-            <CardDescription>
+            </div>
+            <div className="text-gray-600 text-sm mb-2">
               Choose your difficulty level and number of questions
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Demo Section - Show when no questions loaded */}
-            {questions.length === 0 && !loading && (
-              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200 mb-6">
-                <h3 className="text-sm font-medium text-blue-800 mb-3">
-                  📝 How to Use the Quiz
-                </h3>
-                <div className="space-y-3 text-sm">
-                  <div className="p-3 bg-white rounded border">
-                    <div className="mb-2">
-                      <strong>Instructions:</strong>
+            </div>
+          </div>
+          <div className="space-y-6">
+            {/* Pregenerated Quiz Section */}
+            <div className="space-y-3">
+              {questions.length !== 0 && (
+                <div className="absolute top-4 left-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsQuizOrPracticeMode(false)}
+                  >
+                    Go Back
+                  </Button>
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">
+                  Pregenerated Quizzes
+                </label>
+                <div className="flex gap-2">
+                  {showPregenerated && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={fetchPregeneratedQuizzes}
+                      disabled={loadingPregenerated}
+                      title="Refresh pregenerated quizzes"
+                    >
+                      <RefreshCw
+                        className={`w-4 h-4 ${
+                          loadingPregenerated ? "animate-spin" : ""
+                        }`}
+                      />
+                    </Button>
+                  )}
+                  {loadingPregenerated && (
+                    <div className="flex items-center justify-center p-6 text-gray-500">
+                      <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                      Loading pregenerated quizzes...
                     </div>
-                    <ul className="list-disc list-inside space-y-1 text-gray-700">
-                      <li>
-                        <strong>Type directly in the sentence:</strong> The
-                        textbox appears where the verb should go
-                      </li>
-                      <li>
-                        <strong>Press Enter to submit:</strong> No need to click
-                        any buttons
-                      </li>
-                      <li>
-                        <strong>Correct answers:</strong> Turn the textbox green
-                      </li>
-                      <li>
-                        <strong>Wrong answers:</strong> Show the correct answer
-                        in red
-                      </li>
-                      <li>
-                        <strong>Use accent buttons:</strong> Click the buttons
-                        below to add special characters
-                      </li>
-                      <li>
-                        <strong>Question counts:</strong> Choose from 15, 50, or
-                        75 questions
-                      </li>
-                    </ul>
-                  </div>
-
-                  <div className="p-2 bg-white rounded border">
-                    <div className="mb-2">
-                      <strong>Example sentence:</strong>
-                    </div>
-                    <div className="text-lg">
-                      Yo{" "}
-                      <input
-                        type="text"
-                        placeholder="hablé"
-                        className="inline-block px-2 py-1 border border-gray-300 rounded text-center"
-                        style={{ width: "80px" }}
-                        disabled
-                      />{" "}
-                      con mi padre ayer.
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      (In practice, you'll type your answer directly in the
-                      textbox)
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
-            )}
+
+              <div className="space-y-2 max-h-60 overflow-y-auto border rounded-lg p-2 bg-gray-50">
+                {loadingPregenerated ? (
+                  <div className="flex items-center justify-center p-6 text-gray-500">
+                    <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                    Loading pregenerated quizzes...
+                  </div>
+                ) : pregeneratedQuizzes.length === 0 ? (
+                  <div className="p-6 text-center text-gray-500 text-sm">
+                    <BookOpen className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                    <div className="space-y-2">
+                      {[...Array(5)].map((_, index) => (
+                        <div
+                          key={index}
+                          className="p-3 border rounded-lg bg-gray-200 animate-pulse"
+                        >
+                          <div className="h-4 bg-gray-300 rounded mb-2"></div>
+                          <div className="h-3 bg-gray-300 rounded"></div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  pregeneratedQuizzes.map((quiz) => (
+                    <div
+                      key={quiz.id}
+                      className={`p-3 border rounded-lg transition-colors bg-white ${
+                        loadingQuizId === quiz.id
+                          ? "border-blue-200 shadow-sm cursor-not-allowed"
+                          : "border-gray-200 hover:border-blue-300 hover:shadow-sm cursor-pointer"
+                      }`}
+                      onClick={() =>
+                        loadingQuizId === null && loadPregeneratedQuiz(quiz)
+                      }
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-sm text-gray-900 truncate">
+                            {quiz.name}
+                          </h4>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {quiz.conjugationQuestions.length} questions •{" "}
+                            {new Date(quiz.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div className="flex items-center ml-2">
+                          {loadingQuizId === quiz.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                          ) : (
+                            <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-blue-500" />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
             <div className="space-y-3">
               <label className="text-sm font-medium">Difficulty Level</label>
               <div className="flex gap-2">
@@ -477,14 +626,18 @@ export default function Spanish() {
 
             <Button
               onClick={generateQuestions}
-              disabled={loading}
+              disabled={loading || loadingQuizId !== null}
               className="w-full"
-              size="lg"
             >
               {loading ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
                   Generating Questions...
+                </>
+              ) : loadingQuizId !== null ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  Loading Quiz...
                 </>
               ) : (
                 <>
@@ -493,73 +646,66 @@ export default function Spanish() {
                 </>
               )}
             </Button>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
       {/* Error Display */}
       {error && (
-        <Card className="border-red-200 bg-red-50">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2 text-red-700">
-              <XCircle className="w-5 h-5" />
-              <span className="font-medium">Error: {error}</span>
-            </div>
-            <Button onClick={resetQuiz} variant="outline" className="mt-3">
-              Try Again
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="border border-red-200 bg-red-50 rounded-lg p-6">
+          <div className="flex items-center gap-2 text-red-700">
+            <XCircle className="w-5 h-5" />
+            <span className="font-medium">Error: {error}</span>
+          </div>
+          <Button onClick={resetQuiz} variant="outline" className="mt-3">
+            Try Again
+          </Button>
+        </div>
       )}
 
       {/* Quiz Results */}
       {quizState.showResults && (
-        <Card className="border-green-200 bg-green-50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-green-800">
-              <CheckCircle2 className="w-5 h-5" />
-              Quiz Complete!
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center space-y-4">
-              <div className="text-4xl font-bold text-green-700">
-                {quizState.score}/{questions.length}
-              </div>
-              <div className="text-lg text-green-600">
-                {Math.round((quizState.score / questions.length) * 100)}%
-                Correct
-              </div>
-              <div className="flex gap-2 justify-center">
-                <Button onClick={resetQuiz} variant="outline">
-                  New Questions
-                </Button>
-                <Button
-                  onClick={() =>
-                    setQuizState((prev) => ({
-                      ...prev,
-                      showResults: false,
-                      currentIndex: 0,
-                      answerChecked: false,
-                    }))
-                  }
-                >
-                  Review Answers
-                </Button>
-              </div>
+        <div className="border border-green-200 bg-green-50 rounded-lg p-6">
+          <div className="flex items-center gap-2 text-green-800 font-semibold mb-4">
+            <CheckCircle2 className="w-5 h-5" />
+            Quiz Complete!
+          </div>
+          <div className="text-center space-y-4">
+            <div className="text-4xl font-bold text-green-700">
+              {quizState.score}/{questions.length}
             </div>
-          </CardContent>
-        </Card>
+            <div className="text-lg text-green-600">
+              {Math.round((quizState.score / questions.length) * 100)}% Correct
+            </div>
+            <div className="flex gap-2 justify-center">
+              <Button onClick={resetQuiz} variant="outline">
+                New Questions
+              </Button>
+              <Button
+                onClick={() =>
+                  setQuizState((prev) => ({
+                    ...prev,
+                    showResults: false,
+                    currentIndex: 0,
+                    answerChecked: false,
+                  }))
+                }
+              >
+                Review Answers
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Question Display */}
       {questions.length > 0 && currentQuestion && !quizState.showResults && (
-        <Card>
-          <CardHeader>
+        <div className="border border-gray-200 rounded-lg p-6 bg-white relative">
+          <div className="mb-4">
             <div className="flex items-center justify-between">
-              <CardTitle>
+              <div className="text-lg font-semibold">
                 Question {quizState.currentIndex + 1} of {questions.length}
-              </CardTitle>
+              </div>
               <div className="flex items-center gap-2">
                 <Badge
                   className={
@@ -570,7 +716,7 @@ export default function Spanish() {
                 </Badge>
               </div>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
+            <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
               <div
                 className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                 style={{
@@ -580,8 +726,28 @@ export default function Spanish() {
                 }}
               />
             </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
+            <div className="absolute top-4 left-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setIsQuizOrPracticeMode(false);
+                  setQuestions([]);
+                  setQuizState({
+                    currentIndex: 0,
+                    userAnswers: [],
+                    showResults: false,
+                    score: 0,
+                    answerChecked: false,
+                  });
+                  setError(null);
+                }}
+              >
+                Go Back
+              </Button>
+            </div>
+          </div>
+          <div className="space-y-6">
             <div className="text-center space-y-6">
               {/* Centered Tense */}
               <div className="flex justify-center">
@@ -701,16 +867,7 @@ export default function Spanish() {
                 )}
               </div>
             </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Reset Button */}
-      {questions.length > 0 && (
-        <div className="text-center">
-          <Button onClick={resetQuiz} variant="outline">
-            Start New Session
-          </Button>
+          </div>
         </div>
       )}
     </div>
