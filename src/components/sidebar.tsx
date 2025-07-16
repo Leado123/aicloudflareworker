@@ -24,6 +24,7 @@ function SideBar() {
     const [windowWidth, setWindowWidth] = useState(0);
     const [isMouseInBounds, setIsMouseInBounds] = useState(false);
     const [previousSidebarState, setPreviousSidebarState] = useState(false); // Store previous state for calculator mode
+    const [hasMounted, setHasMounted] = useState(false); // Track if the component has mounted to avoid animating on first load
 
     // In calculator mode, sidebar should always be in drawer mode
     const isCalculatorMode = currentMode === 'calculator';
@@ -74,6 +75,11 @@ function SideBar() {
             setIsCollapsed(previousSidebarState);
         }
     }, [isCalculatorMode]); // Only run when calculator mode changes
+
+    // Notify that the component has mounted
+    useEffect(() => {
+        setHasMounted(true);
+    }, []);
 
     // Get icon for mode
     const getModeIcon = (modeKey: ModeKey) => {
@@ -234,17 +240,16 @@ function SideBar() {
             {/* Ghost sidebar - invisible but affects layout */}
             {!isAutoHidden && (
                 <motion.div
-                    animate={{
-                        width: shouldShowSidebar ? 256 : 0
-                    }}
-                    transition={{ 
+                    animate={hasMounted ? { width: shouldShowSidebar ? 256 : 0 } : undefined}
+                    initial={hasMounted ? undefined : { width: 256 }}
+                    transition={hasMounted ? {
                         type: "spring",
                         stiffness: 400,
                         damping: 40,
                         mass: 0.8
-                    }}
+                    } : undefined}
                     className="invisible overflow-hidden"
-                    style={{ height: "100%" }}
+                    style={{ height: "100%", width: hasMounted ? undefined : 256 }}
                 />
             )}
 

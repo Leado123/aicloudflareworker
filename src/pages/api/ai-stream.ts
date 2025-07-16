@@ -40,9 +40,9 @@ const apiKeyManager = APIKeyManager.getInstance();
 
 
 export async function POST({ request, locals }: APIContext) {
-    // Get current API key from the manager
-    const currentApiKey = apiKeyManager.getCurrentApiKey();
-    
+    // Get current API key from the manager (await for async)
+    const currentApiKey = await apiKeyManager.getCurrentApiKey();
+
     const google = createGoogleGenerativeAI({
         apiKey: currentApiKey
     });

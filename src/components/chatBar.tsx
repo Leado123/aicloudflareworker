@@ -140,28 +140,11 @@ export default function ChatBar({
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.5, ease: "easeInOut" }}
-                    className="mb-8 text-center"
+                    className="mb-2 text-center"
                 >
-                    <LayoutGroup>
-                        <motion.p layout className="text-4xl flex flex-wrap place-items-center justify-center">
-                            <motion.span layout transition={{ type: "spring", damping: 30, stiffness: 400 }}>You can&nbsp;</motion.span>
-                            <RotatingText
-                                texts={['ask a question', 'generate Notion notes', 'make Quizlet flashcards', 'make Knowt flashcards']}
-                                mainClassName="bg-black p-2 text-white rounded-lg"
-                                staggerFrom={"last"} // @ts-expect-error
-                                initial={{ y: "100%" }}
-                                animate={{ y: 0 }}// @ts-expect-error
-                                exit={{ y: "-110%" }}
-                                staggerDuration={0.025}
-                                splitBy="words"
-                                splitLevelClassName="overflow-hidden pb-0.5 sm:pb-1 md:pb-1"
-                                transition={{ type: "spring", damping: 30, stiffness: 400 }}
-                                rotationInterval={2000}
-                            />
-                        </motion.p>
-                    </LayoutGroup>
+                    <h1 className="text-6xl font-medium">Chat</h1>
                     <p className="text-gray-500 mt-4">
-                        Powered by Gemini & College Success Club Prompt Engineering
+                        SS Studio is a collection of various tools
                     </p>
                 </motion.div>
             )}
