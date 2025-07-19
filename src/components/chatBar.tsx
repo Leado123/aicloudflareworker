@@ -1,50 +1,40 @@
 import { type Conversation } from "@/util/modeDefinitions";
-import { motion } from "framer-motion";
-
-import { Input } from "./ui/input";
+import { motion, AnimatePresence } from "framer-motion";
 import { useStore } from "@nanostores/react";
-import { AnimatePresence, LayoutGroup } from "framer-motion";
 import { LucideArrowDown, LucideArrowRight, LucidePlus } from "lucide-react";
-import { useEffect, useState } from "react";
-
+import React from "react";
 import { isAtBottomAtom, scrollToBottomSignal } from "./messages";
-import RotatingText from "@/blocks/TextAnimations/RotatingText/RotatingText";
 
 interface ChatBarProps {
   currentConversation: Conversation | null;
   conversationEmpty: boolean;
   createConversation: (data: Partial<Conversation>) => string;
-  submitMessage: (message: string) => void;
+  submitMessage: (e: React.FormEvent<HTMLFormElement>) => void;
+  input: string;
+  handleInputChange: (
+    e:
+      | React.ChangeEvent<HTMLInputElement>
+      | React.ChangeEvent<HTMLTextAreaElement>
+  ) => void;
 }
 
 export default function ChatBar({
-  currentConversation: $currentConversation,
   conversationEmpty: $conversationEmpty,
   createConversation,
   submitMessage,
+  input,
+  handleInputChange,
 }: ChatBarProps) {
   const $isAtBottom = useStore(isAtBottomAtom);
 
-  const [inputValue, setInputValue] = useState("");
-
-  console.log(
-    "CHATBAR DEBUG - isAtBottom:",
-    $isAtBottom,
-    "conversationEmpty:",
-    $conversationEmpty,
-    "show button?",
-    !$isAtBottom && !$conversationEmpty
-  );
-
   const handleNewConversation = () => {
     createConversation({ title: "New Chat" });
-    setInputValue("");
   };
 
-  const handleSendMessage = () => {
-    if (inputValue.trim()) {
-      submitMessage(inputValue.trim());
-      setInputValue("");
+  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (input.trim()) {
+      submitMessage(e);
     }
   };
 
@@ -64,7 +54,6 @@ export default function ChatBar({
           : `absolute bottom-0 left-0 right-0 w-full p-2 flex flex-col items-center gap-2`
       }
     >
-      {/* Initial text when conversation is empty - now part of ChatBar */}
       {$conversationEmpty && (
         <motion.div
           initial={{ opacity: 0 }}
@@ -81,24 +70,17 @@ export default function ChatBar({
       )}
 
       <AnimatePresence>
-        {" "}
-        {/* Scroll to bottom button */}
-        {/* Temporarily always show for debugging */}
         {!$conversationEmpty && !$isAtBottom && (
           <motion.button
             className="absolute top-[-4em] cursor-pointer p-3 rounded-full backdrop-blur-lg border shadow"
             onClick={() => {
-              console.log("SCROLL BUTTON CLICKED");
-              // Trigger scroll signal - Messages component will handle the actual scrolling
               const currentValue = scrollToBottomSignal.get();
-              const newValue = currentValue + 1;
-              console.log("Signal changing from", currentValue, "to", newValue);
-              scrollToBottomSignal.set(newValue);
+              scrollToBottomSignal.set(currentValue + 1);
             }}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            title={`Scroll to bottom (isAtBottom: ${$isAtBottom})`}
+            title="Scroll to bottom"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
@@ -107,38 +89,33 @@ export default function ChatBar({
         )}
       </AnimatePresence>
 
-      <div
-        className={`w-full max-w-4xl shadow flex bg-white flex-col border gap-2 rounded-3xl p-2 ${
-          $conversationEmpty ? "" : ""
-        }`}
+      <form
+        onSubmit={handleFormSubmit}
+        className="w-full max-w-4xl shadow flex bg-white flex-col border gap-2 rounded-3xl p-2"
       >
         <textarea
-          className="outline-0 text-lg p-2 border-0 shadow-none resize-none"
+          className="outline-0 text-lg p-2 border-0 shadow-none resize-none w-full"
           placeholder="Ask ShareSyllabus AI"
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
+          value={input}
+          onChange={handleInputChange}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
-              handleSendMessage();
+              (e.target as HTMLTextAreaElement).form?.requestSubmit();
             }
           }}
           rows={1}
-          style={{ minHeight: "2.5em", maxHeight: "8em", overflowY: "auto" }}
+          style={{ minHeight: "2.5em", maxHeight: "10em", overflowY: "auto" }}
           ref={(el) => {
             if (el) {
-              // Auto-resize logic to mimic minRows/maxRows
               el.style.height = "auto";
-              el.style.height =
-                Math.min(
-                  Math.max(el.scrollHeight, 2.5 * 16), // 2.5em in px (assuming 16px font)
-                  8 * 16 // 8em in px
-                ) + "px";
+              el.style.height = `${el.scrollHeight}px`;
             }
           }}
         />
         <div className="flex text-gray-600 gap-2">
           <button
+            type="button"
             className="cursor-pointer p-2 rounded-full hover:bg-gray-100"
             onClick={handleNewConversation}
             title="Start new conversation"
@@ -147,13 +124,14 @@ export default function ChatBar({
           </button>
           <div className="flex-1"></div>
           <button
-            className="cursor-pointer bg-blue-50 hover:bg-blue-100 p-2 rounded-full"
-            onClick={handleSendMessage}
+            type="submit"
+            className="cursor-pointer bg-blue-50 hover:bg-blue-100 p-2 rounded-full disabled:bg-gray-100 disabled:cursor-not-allowed"
+            disabled={!input.trim()}
           >
             <LucideArrowRight />
           </button>
         </div>
-      </div>
+      </form>
 
       {$conversationEmpty && (
         <p className="text-xs text-gray-700 mt-4 text-center max-w-2xl">

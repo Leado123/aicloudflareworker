@@ -7,17 +7,7 @@ import { Button } from "./ui/button";
 import { LucideThumbsDown, LucideThumbsUp } from "lucide-react";
 import { AIResponse } from "./ui/kibo-ui/ai/response";
 import { motion, LayoutGroup } from "framer-motion";
-import type { CoreMessage } from "ai";
-
-// Define extended message type with metadata support
-interface ExtendedCoreMessage {
-  role: "user" | "assistant" | "system" | "function" | "tool" | "data";
-  content: string | Record<string, any>;
-  metadata?: {
-    suggestedPrompts?: string[];
-    [key: string]: any;
-  };
-}
+import type { CoreMessage, UIMessage } from "ai";
 
 // Type guard to check if object has response property
 function hasResponse(obj: any): obj is { response: string } {
@@ -31,13 +21,13 @@ export const isAtBottomAtom = atom<boolean>(true);
 export const scrollToBottomSignal = atom<number>(0);
 
 interface MessagesProps {
-  currentConversation: Conversation | null;
   submitMessage: (message: string) => void;
+  messages: UIMessage[];
 }
 
 export default function Messages({
-  currentConversation: $currentConversation,
   submitMessage,
+  messages,
 }: MessagesProps) {
   const $scrollToBottomSignal = useStore(scrollToBottomSignal);
   const [isItStreaming, setIsItStreaming] = useState<boolean | null>(false);
@@ -96,7 +86,7 @@ export default function Messages({
         scrollAreaViewport.removeEventListener("scroll", handleScroll);
       };
     }
-  }, [$currentConversation?.messages?.length]);
+  }, [messages?.length]);
 
   // Listen to scroll signal from ChatBar button
   useEffect(() => {
@@ -133,7 +123,7 @@ export default function Messages({
   // Auto-scroll to bottom when new messages are added and user is already at bottom
   useEffect(() => {
     if (
-      $currentConversation?.messages &&
+      messages &&
       isAtBottomState &&
       scrollAreaRef.current
     ) {
@@ -164,12 +154,12 @@ export default function Messages({
         isAtBottomAtom.set(isAtBottom);
       }
     }, 150);
-  }, [$currentConversation?.messages?.length]);
+  }, [messages?.length]);
 
   useEffect(() => {
-    if ($currentConversation?.messages) {
+    if (messages) {
       const lastMessage =
-        $currentConversation.messages[$currentConversation.messages.length - 1];
+        messages[messages.length - 1];
       const isLastAssistantMessage =
         lastMessage?.role === "assistant" && lastMessage?.content === "";
       setIsItStreaming(isLastAssistantMessage);
@@ -188,13 +178,13 @@ export default function Messages({
         }, 50);
       }
     }
-  }, [$currentConversation?.messages]);
+  }, [messages]);
 
   // Auto-scroll during streaming when content is being added
   useEffect(() => {
-    if (isItStreaming && $currentConversation?.messages) {
+    if (isItStreaming && messages) {
       const lastMessage =
-        $currentConversation.messages[$currentConversation.messages.length - 1];
+        messages[messages.length - 1];
       if (lastMessage?.role === "assistant" && lastMessage?.content) {
         // Only scroll if user is near the bottom to avoid interrupting reading
         const scrollAreaViewport = document.querySelector(
@@ -215,7 +205,7 @@ export default function Messages({
       }
     }
   }, [
-    $currentConversation?.messages?.[$currentConversation?.messages?.length - 1]
+    messages?.[messages?.length - 1]
       ?.content,
     isItStreaming,
   ]); // Listen to content changes of last message
@@ -228,12 +218,12 @@ export default function Messages({
     >
       <div className="w-full max-w-4xl mx-auto">
         <LayoutGroup>
-          {$currentConversation?.messages.map((message, index) => {
+          {messages.map((message, index) => {
             const isLastAssistantMessage =
               message.role === "assistant" &&
-              index === $currentConversation.messages.length - 1;
+              index === messages.length - 1;
             const isLastMessage =
-              index === $currentConversation.messages.length - 1;
+              index === messages.length - 1;
 
             return (
               <div
@@ -249,6 +239,7 @@ export default function Messages({
                       : "text-gray-900"
                   }`}
                 >
+                  
                   <div className="whitespace-pre-line break-words">
                     {isLastAssistantMessage && isItStreaming ? (
                       <div className="flex items-center space-x-1">
@@ -269,79 +260,29 @@ export default function Messages({
                       </div>
                     ) : message.role === "assistant" ? (
                       <div className="flex flex-col">
-                        <AIResponse>
-                          {/* Handle object format with response and suggestedNextPrompts */}
-                          {typeof message.content === "string"
-                            ? message.content
-                            : message.content &&
-                              typeof message.content === "object" &&
-                              hasResponse(message.content)
-                            ? message.content.response
-                            : typeof message.content !== "string"
-                            ? ""
-                            : message.content}
-                        </AIResponse>
-                        {/* SUGGESTED PROMPTS UI */}
-                        {typeof message.content === "object" &&
-                          message.content !== null &&
-                          "suggestedNextPrompts" in message.content &&
-                          Array.isArray(message.content.suggestedNextPrompts) &&
-                          message.content.suggestedNextPrompts.length > 0 && (
-                            <div className="mt-4 flex flex-col gap-2">
-                              <div className="text-xs text-gray-500 mb-1">
-                                Suggested next prompts:
-                              </div>
-                              <div className="flex flex-wrap gap-2">
-                                {message.content.suggestedNextPrompts.map(
-                                  (prompt: string, i: number) => (
-                                    <Button
-                                      key={i}
-                                      variant="outline"
-                                      size="sm"
-                                      className="text-xs"
-                                      onClick={() => submitMessage(prompt)}
-                                    >
-                                      {prompt}
-                                    </Button>
-                                  )
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        {/* Fallback to metadata for backwards compatibility */}
-                        {(!message.content ||
-                          typeof message.content !== "object" ||
-                          !("suggestedNextPrompts" in message.content)) &&
-                          (message as ExtendedCoreMessage).metadata
-                            ?.suggestedPrompts &&
-                          Array.isArray(
-                            (message as ExtendedCoreMessage).metadata
-                              ?.suggestedPrompts
-                          ) &&
-                          ((message as ExtendedCoreMessage).metadata
-                            ?.suggestedPrompts?.length ?? 0) > 0 && (
-                            <div className="mt-4 flex flex-col gap-2">
-                              <div className="text-xs text-gray-500 mb-1">
-                                Suggested next prompts:
-                              </div>
-                              <div className="flex flex-wrap gap-2">
-                                {(
-                                  (message as ExtendedCoreMessage).metadata
-                                    ?.suggestedPrompts || []
-                                ).map((prompt: string, i: number) => (
-                                  <Button
-                                    key={i}
-                                    variant="outline"
-                                    size="sm"
-                                    className="text-xs"
-                                    onClick={() => submitMessage(prompt)}
-                                  >
-                                    {prompt}
-                                  </Button>
-                                ))}
-                              </div>
-                            </div>
-                          )}
+                          <AIResponse>{message.content}</AIResponse>
+                          {message.toolInvocations?.map((toolInvocation, index) => {
+                            const { toolName, toolCallId, state } = toolInvocation;
+                            if (state === 'result') {
+                              if (toolName === 'generateThreePrompts') {
+                                const { result } = toolInvocation;
+                                return (
+                                  <div key={toolCallId}>
+                                    {result.toString()}
+                                  </div>
+                                );
+                              }
+                            } else {
+                              return (
+                                <div key={toolCallId}>
+                                  {toolName === 'generateThreePrompts' ? (
+                                    <div>Loading three prompts...</div>
+                                  ) : null}
+                                </div>
+                              );
+                            }
+                          })}
+                       
                         {!isItStreaming && (
                           <div>
                             <Button variant="ghost" size="sm" className="mt-2">
