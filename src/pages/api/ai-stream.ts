@@ -3,8 +3,8 @@
 export const prerender = false;
 
 import type { APIContext } from "astro";
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { streamObject } from "ai";
+import { createGoogleGenerativeAI, google } from "@ai-sdk/google";
+import { streamObject, streamText, Output } from "ai";
 import type { CoreMessage } from "ai";
 import { z } from "zod";
 import APIKeyManager from "@/util/apiKeyManager";
@@ -75,7 +75,7 @@ export async function POST({ request }: APIContext) {
     // Get current API key from the manager
     const currentApiKey = await apiKeyManager.getCurrentApiKey();
 
-    const google = createGoogleGenerativeAI({
+    const googleObject = createGoogleGenerativeAI({
       apiKey: currentApiKey,
     });
 
@@ -124,17 +124,15 @@ IMPORTANT: Always provide exactly 3 relevant follow-up prompts that would be int
       input: editedMessages,
     });
 
-    console.log("Starting streamObject...");
-    const result = streamObject({
-      model: google("gemini-1.5-flash", {
+    console.log("Starting streamText with experimental output...");
+    const { text, experimental_partialOutputStream } = await streamText({
+      model: googleObject("gemini-1.5-flash", {
         useSearchGrounding: true,
-        dynamicRetrievalConfig: {
-          mode: "MODE_DYNAMIC",
-          dynamicThreshold: 0.8,
-        },
       }),
       messages: editedMessages,
-      schema: chatSchema,
+      experimental_output: Output.object({
+        schema: chatSchema,
+      }),
       onFinish: (result) => {
         console.log("Stream completed. Final result:", result);
 
@@ -143,7 +141,7 @@ IMPORTANT: Always provide exactly 3 relevant follow-up prompts that would be int
 
         // End generation trace
         generationTrace.end({
-          output: result.object,
+          output: text,
         });
       },
       onError: (error) => {
@@ -170,8 +168,32 @@ IMPORTANT: Always provide exactly 3 relevant follow-up prompts that would be int
       },
     });
 
-    console.log("Returning text stream response...");
-    return result.toTextStreamResponse();
+    console.log("Returning structured text stream response...");
+
+    // Create a response using the experimental partial output stream
+    return new Response(
+      experimental_partialOutputStream.pipeThrough(
+        new TransformStream({
+          transform(chunk, controller) {
+            // Make sure we have a valid response object structure
+            const response = {
+              response: chunk.response || "",
+              suggestedNextPrompts: Array.isArray(chunk.suggestedNextPrompts)
+                ? chunk.suggestedNextPrompts
+                : [],
+            };
+            controller.enqueue(JSON.stringify(response) + "\n");
+          },
+        })
+      ),
+      {
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Transfer-Encoding": "chunked",
+          "Cache-Control": "no-cache",
+        },
+      }
+    );
   } catch (error: any) {
     console.error("API Error:", error);
     return new Response(

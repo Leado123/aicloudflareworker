@@ -9,9 +9,20 @@ import { AIResponse } from "./ui/kibo-ui/ai/response";
 import { motion, LayoutGroup } from "framer-motion";
 import type { CoreMessage, UIMessage } from "ai";
 
-// Type guard to check if object has response property
+// Type guards to check for different content formats
 function hasResponse(obj: any): obj is { response: string } {
   return obj && typeof obj === "object" && "response" in obj;
+}
+
+function hasSuggestedPrompts(
+  obj: any
+): obj is { suggestedNextPrompts: string[] } {
+  return (
+    obj &&
+    typeof obj === "object" &&
+    "suggestedNextPrompts" in obj &&
+    Array.isArray(obj.suggestedNextPrompts)
+  );
 }
 
 // Create a nanostore atom to track if messages are at the bottom

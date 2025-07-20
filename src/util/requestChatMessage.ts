@@ -133,7 +133,7 @@ export async function requestChatMessageStream(
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let fullResponse: ChatResponse = { response: "", suggestedNextPrompts: [] };
-    let accumulatedText = "";
+    let buffer = "";
 
     console.log("Starting to read AI SDK text stream...");
 
@@ -146,56 +146,71 @@ export async function requestChatMessageStream(
 
       const chunk = decoder.decode(value, { stream: true });
       console.log("Received raw chunk:", chunk);
-      accumulatedText += chunk;
 
-      // For AI SDK streaming, try to parse the accumulated text as JSON
-      // The AI SDK sends the complete JSON object at the end
-      let parsed = null;
-      try {
-        parsed = JSON.parse(accumulatedText);
-        console.log("Successfully parsed complete JSON:", parsed);
+      // Append to buffer and look for complete JSON objects (line-delimited)
+      buffer += chunk;
 
-        // We have a complete parsed response
-        if (parsed.error) {
-          throw new Error(parsed.error);
+      // Split by newlines to find complete JSON objects
+      const lines = buffer.split("\n");
+
+      // Process all complete lines except the last one (which might be incomplete)
+      for (let i = 0; i < lines.length - 1; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        try {
+          // Parse the JSON object
+          const parsed = JSON.parse(line);
+          console.log("Successfully parsed JSON:", parsed);
+
+          // Update our response object
+          if (parsed.response !== undefined) {
+            fullResponse.response = parsed.response;
+          }
+
+          if (parsed.suggestedNextPrompts !== undefined) {
+            fullResponse.suggestedNextPrompts = parsed.suggestedNextPrompts;
+          }
+
+          // Call onChunk with the updated response object
+          onChunk({
+            response: fullResponse.response,
+            suggestedNextPrompts: fullResponse.suggestedNextPrompts,
+          });
+        } catch (jsonError) {
+          console.error("Error parsing JSON line:", line, jsonError);
         }
+      }
 
+      // Keep the last (potentially incomplete) line in the buffer
+      buffer = lines[lines.length - 1];
+    }
+
+    // Process any remaining content in the buffer
+    if (buffer.trim()) {
+      try {
+        const parsed = JSON.parse(buffer);
         if (parsed.response !== undefined) {
           fullResponse.response = parsed.response;
         }
-
         if (parsed.suggestedNextPrompts !== undefined) {
           fullResponse.suggestedNextPrompts = parsed.suggestedNextPrompts;
         }
-
-        // Call onChunk with the complete response object
-        onChunk({
-          response: fullResponse.response,
-          suggestedNextPrompts: fullResponse.suggestedNextPrompts,
-        });
-      } catch (jsonError) {
-        // JSON parsing failed - this is likely a partial response
-        // Check if this appears to be part of a JSON object (has braces, quotes, etc.)
-        if (/[\{\}\[\]":]/.test(chunk)) {
-          console.log(
-            "Chunk appears to be incomplete JSON, accumulating without updating UI"
-          );
-          // Don't update the UI with partial JSON that would display as [object Object]
-        } else {
-          // This is likely regular text streaming - handle as before
-          console.log("Treating accumulated text as regular text response");
-          onChunk({
-            response: accumulatedText,
-            suggestedNextPrompts: [],
-          });
+        onChunk(fullResponse);
+      } catch (e) {
+        console.error("Error parsing final buffer:", e);
+        // If we can't parse it as JSON, use it as raw text
+        if (buffer.trim()) {
+          fullResponse.response = buffer.trim();
+          onChunk(fullResponse);
         }
       }
     }
 
     // Final processing - ensure we have a complete response
-    if (accumulatedText) {
+    if (buffer) {
       try {
-        const finalParsed = JSON.parse(accumulatedText);
+        const finalParsed = JSON.parse(buffer);
         // Update any properties that were present
         if (finalParsed.response !== undefined) {
           fullResponse.response = finalParsed.response;
@@ -204,12 +219,12 @@ export async function requestChatMessageStream(
           fullResponse.suggestedNextPrompts = finalParsed.suggestedNextPrompts;
         }
       } catch (e) {
-        // If final parsing fails and we have no response yet, use accumulated text
+        // If final parsing fails and we have no response yet, use buffer text
         if (!fullResponse.response) {
           console.warn(
             "Could not parse final response as JSON, using as plain text"
           );
-          fullResponse.response = accumulatedText;
+          fullResponse.response = buffer;
         }
       }
     }
