@@ -2,6 +2,7 @@ import pkg from "@prisma/client";
 const { PrismaClient } = pkg;
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { streamText } from "ai";
+import { createCerebras } from "@ai-sdk/cerebras";
 
 const prisma = new PrismaClient();
 
@@ -16,10 +17,12 @@ interface APIKeyInfo {
 class APIKeyManager {
   private static instance: APIKeyManager;
   private geminiKeys: APIKeyInfo[] = [];
+  private cerebrasKeys: APIKeyInfo[] = [];
   private currentKeyIndex = 0;
+  private currentCerebrasKeyIndex = 0;
   private lastValidationTime = 0;
   private lastKeyFetchTime = 0;
-  private validationInterval = 10 * 60 * 1000; // 10 minutes
+  private validationInterval = 60 * 60 * 1000; // 1 hour
   private keyRefreshInterval = 60 * 1000; // 1 minute
   private fallbackApiKey = process.env.GEMINI_API_KEY || ""; // Use environment variable instead of hardcoded key
   private isInitialized = false;
@@ -51,29 +54,39 @@ class APIKeyManager {
   private async loadKeysFromDatabase() {
     try {
       const keys = await prisma.aPIKeys.findMany({
-        where: {
-          type: "GEMINI",
-        },
         orderBy: {
           createdAt: "asc",
         },
       });
 
-      this.geminiKeys = keys.map((key) => ({
-        id: key.id,
-        key: key.key,
-        createdAt: key.createdAt,
-        updatedAt: key.updatedAt,
-        isValid: true, // Assume valid initially
-      }));
+      this.geminiKeys = keys
+        .filter((key) => key.type === "GEMINI")
+        .map((key) => ({
+          id: key.id,
+          key: key.key,
+          createdAt: key.createdAt,
+          updatedAt: key.updatedAt,
+          isValid: true, // Assume valid initially
+        }));
+
+      this.cerebrasKeys = keys
+        .filter((key) => key.type === "CEREBRAS")
+        .map((key) => ({
+          id: key.id,
+          key: key.key,
+          createdAt: key.createdAt,
+          updatedAt: key.updatedAt,
+          isValid: true, // Assume valid initially
+        }));
 
       this.lastKeyFetchTime = Date.now();
       console.log(
-        `Loaded ${this.geminiKeys.length} Gemini API keys from database`
+        `Loaded ${this.geminiKeys.length} Gemini API keys and ${this.cerebrasKeys.length} Cerebras API keys from database`
       );
     } catch (error) {
       console.error("Error loading keys from database:", error);
       this.geminiKeys = [];
+      this.cerebrasKeys = [];
     }
   }
 
@@ -85,7 +98,7 @@ class APIKeyManager {
 
       // Test with a minimal prompt
       const { textStream } = await streamText({
-        model: google("gemini-2.0-flash"),
+        model: google("gemini-1.5-flash"),
         prompt: "Hi",
         maxTokens: 5,
       });
@@ -96,8 +109,39 @@ class APIKeyManager {
       reader.releaseLock();
 
       return !done || value !== undefined;
-    } catch (error) {
-      console.error(`API key validation failed:`, error);
+    } catch (error: any) {
+      console.error(
+        `Gemini API key validation failed: ${error.message || "Unknown error"}`
+      );
+      return false;
+    }
+  }
+
+  private async validateCerebrasApiKey(apiKey: string): Promise<boolean> {
+    try {
+      const cerebras = createCerebras({
+        apiKey: apiKey,
+      });
+
+      // Test with a minimal prompt
+      const { textStream } = await streamText({
+        model: cerebras("llama-3.3-70b"),
+        prompt: "Hi",
+        maxTokens: 5,
+      });
+
+      // Try to read first chunk
+      const reader = textStream.getReader();
+      const { done, value } = await reader.read();
+      reader.releaseLock();
+
+      return !done || value !== undefined;
+    } catch (error: any) {
+      console.error(
+        `Cerebras API key validation failed: ${
+          error.message || "Unknown error"
+        }`
+      );
       return false;
     }
   }
@@ -105,30 +149,45 @@ class APIKeyManager {
   private async validateAllKeys() {
     console.log("Starting validation of all API keys...");
 
+    // Validate Gemini keys
     for (let i = 0; i < this.geminiKeys.length; i++) {
       const keyInfo = this.geminiKeys[i];
       const isValid = await this.validateApiKey(keyInfo.key);
-
       if (keyInfo.isValid !== isValid) {
         console.log(
-          `API key ${keyInfo.id} validation changed: ${keyInfo.isValid} -> ${isValid}`
+          `Gemini API key ${keyInfo.id} validation changed: ${keyInfo.isValid} -> ${isValid}`
         );
         this.geminiKeys[i].isValid = isValid;
       }
-
-      // Add small delay between validations to avoid rate limiting
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
 
-    // Filter out invalid keys for cycling
-    const validKeys = this.geminiKeys.filter((key) => key.isValid);
+    // Validate Cerebras keys
+    for (let i = 0; i < this.cerebrasKeys.length; i++) {
+      const keyInfo = this.cerebrasKeys[i];
+      const isValid = await this.validateCerebrasApiKey(keyInfo.key);
+      if (keyInfo.isValid !== isValid) {
+        console.log(
+          `Cerebras API key ${keyInfo.id} validation changed: ${keyInfo.isValid} -> ${isValid}`
+        );
+        this.cerebrasKeys[i].isValid = isValid;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+
+    // Filter out invalid keys and log
+    const validGeminiKeys = this.geminiKeys.filter((key) => key.isValid);
+    const validCerebrasKeys = this.cerebrasKeys.filter((key) => key.isValid);
     console.log(
-      `Validation complete. ${validKeys.length}/${this.geminiKeys.length} keys are valid`
+      `Validation complete. Gemini: ${validGeminiKeys.length}/${this.geminiKeys.length} valid. Cerebras: ${validCerebrasKeys.length}/${this.cerebrasKeys.length} valid.`
     );
 
-    // If current key index is pointing to an invalid key, reset to 0
-    if (this.currentKeyIndex >= validKeys.length) {
+    // Reset indices if they are out of bounds
+    if (this.currentKeyIndex >= validGeminiKeys.length) {
       this.currentKeyIndex = 0;
+    }
+    if (this.currentCerebrasKeyIndex >= validCerebrasKeys.length) {
+      this.currentCerebrasKeyIndex = 0;
     }
   }
 
@@ -149,7 +208,7 @@ class APIKeyManager {
     }, 5000); // Check every 5 seconds
   }
 
-  public async getCurrentApiKey(): Promise<string> {
+  public async getCurrentApiKey(): Promise<string | null> {
     // Ensure initialization is complete
     if (!this.isInitialized) {
       console.log("Waiting for API key manager initialization...");
@@ -165,9 +224,8 @@ class APIKeyManager {
     const validKeys = this.geminiKeys.filter((key) => key.isValid !== false);
 
     if (validKeys.length === 0) {
-      console.warn("No valid API keys available, using fallback");
-
-      return this.fallbackApiKey;
+      console.warn("No valid Gemini API keys available.");
+      return null;
     }
 
     // Ensure index is within bounds
@@ -177,9 +235,44 @@ class APIKeyManager {
 
     const currentKey = validKeys[this.currentKeyIndex];
     console.log(
-      `Using API key ${currentKey.id} (${this.currentKeyIndex + 1}/${
+      `Using Gemini API key ${currentKey.id} (${this.currentKeyIndex + 1}/${
         validKeys.length
       })`
+    );
+
+    return currentKey.key;
+  }
+
+  public async getCurrentCerebrasApiKey(): Promise<string | null> {
+    // Ensure initialization is complete
+    if (!this.isInitialized) {
+      console.log("Waiting for API key manager initialization...");
+      await this.waitForInitialization();
+    }
+
+    // Refresh keys if needed
+    const now = Date.now();
+    if (now - this.lastKeyFetchTime > this.keyRefreshInterval) {
+      await this.loadKeysFromDatabase();
+    }
+
+    const validKeys = this.cerebrasKeys.filter((key) => key.isValid !== false);
+
+    if (validKeys.length === 0) {
+      console.warn("No valid Cerebras API keys available.");
+      return null;
+    }
+
+    // Ensure index is within bounds
+    if (this.currentCerebrasKeyIndex >= validKeys.length) {
+      this.currentCerebrasKeyIndex = 0;
+    }
+
+    const currentKey = validKeys[this.currentCerebrasKeyIndex];
+    console.log(
+      `Using Cerebras API key ${currentKey.id} (${
+        this.currentCerebrasKeyIndex + 1
+      }/${validKeys.length})`
     );
 
     return currentKey.key;
@@ -206,53 +299,111 @@ class APIKeyManager {
     }
 
     this.currentKeyIndex = (this.currentKeyIndex + 1) % validKeys.length;
-    console.log(`Rotated to next API key (index: ${this.currentKeyIndex})`);
+    console.log(
+      `Rotated to next Gemini API key (index: ${this.currentKeyIndex})`
+    );
   }
 
-  public getKeyStats(): { total: number; valid: number; invalid: number } {
-    const valid = this.geminiKeys.filter((key) => key.isValid !== false).length;
-    const invalid = this.geminiKeys.filter(
+  public rotateToNextCerebrasKey(): void {
+    const validKeys = this.cerebrasKeys.filter((key) => key.isValid !== false);
+
+    if (validKeys.length <= 1) {
+      return;
+    }
+
+    this.currentCerebrasKeyIndex =
+      (this.currentCerebrasKeyIndex + 1) % validKeys.length;
+    console.log(
+      `Rotated to next Cerebras API key (index: ${this.currentCerebrasKeyIndex})`
+    );
+  }
+
+  public getKeyStats() {
+    const geminiValid = this.geminiKeys.filter(
+      (key) => key.isValid !== false
+    ).length;
+    const geminiInvalid = this.geminiKeys.filter(
+      (key) => key.isValid === false
+    ).length;
+    const cerebrasValid = this.cerebrasKeys.filter(
+      (key) => key.isValid !== false
+    ).length;
+    const cerebrasInvalid = this.cerebrasKeys.filter(
       (key) => key.isValid === false
     ).length;
 
     return {
-      total: this.geminiKeys.length,
-      valid,
-      invalid,
+      gemini: {
+        total: this.geminiKeys.length,
+        valid: geminiValid,
+        invalid: geminiInvalid,
+      },
+      cerebras: {
+        total: this.cerebrasKeys.length,
+        valid: cerebrasValid,
+        invalid: cerebrasInvalid,
+      },
     };
   }
 
-  public async addKey(apiKey: string): Promise<boolean> {
+  public async addKey(
+    apiKey: string,
+    type: "GEMINI" | "CEREBRAS"
+  ): Promise<boolean> {
     try {
-      // Validate the key first
-      const isValid = await this.validateApiKey(apiKey);
+      let isValid = false;
+      if (type === "GEMINI") {
+        isValid = await this.validateApiKey(apiKey);
+      } else if (type === "CEREBRAS") {
+        isValid = await this.validateCerebrasApiKey(apiKey);
+      }
 
       if (!isValid) {
-        throw new Error("Invalid API key");
+        throw new Error(`Invalid ${type} API key`);
       }
 
       // Store in database
       const newKey = await prisma.aPIKeys.create({
         data: {
           key: apiKey,
-          type: "GEMINI",
+          type: type,
         },
       });
 
-      // Add to local cache
-      this.geminiKeys.push({
+      const newKeyInfo: APIKeyInfo = {
         id: newKey.id,
         key: newKey.key,
         createdAt: newKey.createdAt,
         updatedAt: newKey.updatedAt,
         isValid: true,
-      });
+      };
 
-      console.log(`Added new API key ${newKey.id}`);
+      if (type === "GEMINI") {
+        this.geminiKeys.push(newKeyInfo);
+      } else if (type === "CEREBRAS") {
+        this.cerebrasKeys.push(newKeyInfo);
+      }
+
+      console.log(`Added new ${type} API key ${newKey.id}`);
       return true;
     } catch (error) {
       console.error("Failed to add API key:", error);
       return false;
+    }
+  }
+
+  public invalidateKey(apiKey: string, type: "GEMINI" | "CEREBRAS") {
+    console.log(`Attempting to invalidate ${type} key...`);
+    const keyArray = type === "GEMINI" ? this.geminiKeys : this.cerebrasKeys;
+    const keyIndex = keyArray.findIndex((k) => k.key === apiKey);
+
+    if (keyIndex !== -1) {
+      keyArray[keyIndex].isValid = false;
+      console.log(
+        `Successfully invalidated ${type} key ${keyArray[keyIndex].id}.`
+      );
+    } else {
+      console.warn(`Could not find ${type} key to invalidate.`);
     }
   }
 

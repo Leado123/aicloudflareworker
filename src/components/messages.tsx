@@ -25,10 +25,7 @@ interface MessagesProps {
   messages: UIMessage[];
 }
 
-export default function Messages({
-  submitMessage,
-  messages,
-}: MessagesProps) {
+export default function Messages({ submitMessage, messages }: MessagesProps) {
   const $scrollToBottomSignal = useStore(scrollToBottomSignal);
   const [isItStreaming, setIsItStreaming] = useState<boolean | null>(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -44,8 +41,6 @@ export default function Messages({
           "[data-radix-scroll-area-viewport]"
         );
 
-      console.log("SCROLL DEBUG - found viewport:", !!scrollAreaViewport);
-
       if (scrollAreaViewport) {
         const { scrollTop, scrollHeight, clientHeight } = scrollAreaViewport;
         const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
@@ -55,14 +50,6 @@ export default function Messages({
         const isAtBottom =
           scrollHeight <= clientHeight || distanceFromBottom < 10;
 
-        console.log("SCROLL DEBUG:", {
-          isAtBottom,
-          distanceFromBottom,
-          scrollTop,
-          scrollHeight,
-          clientHeight,
-        });
-
         setIsAtBottomState(isAtBottom);
         isAtBottomAtom.set(isAtBottom);
       }
@@ -71,10 +58,6 @@ export default function Messages({
     // Find the actual scrolling element (ScrollArea viewport)
     const scrollAreaViewport = document.querySelector(
       "[data-radix-scroll-area-viewport]"
-    );
-    console.log(
-      "SETUP SCROLL LISTENER - found viewport:",
-      !!scrollAreaViewport
     );
 
     if (scrollAreaViewport) {
@@ -90,27 +73,18 @@ export default function Messages({
 
   // Listen to scroll signal from ChatBar button
   useEffect(() => {
-    console.log("SCROLL SIGNAL CHANGED:", $scrollToBottomSignal);
     if ($scrollToBottomSignal > 0) {
-      console.log("ATTEMPTING TO SCROLL TO BOTTOM...");
-
       // Find the ScrollArea viewport element (which is the actual scrolling container)
       const scrollAreaViewport = document.querySelector(
         "[data-radix-scroll-area-viewport]"
       );
 
       if (scrollAreaViewport) {
-        console.log("Element found, scrolling...", {
-          scrollHeight: scrollAreaViewport.scrollHeight,
-          clientHeight: scrollAreaViewport.clientHeight,
-        });
         // Scroll the viewport element
         scrollAreaViewport.scrollTo({
           top: scrollAreaViewport.scrollHeight,
           behavior: "smooth",
         });
-      } else {
-        console.log("NO SCROLL AREA VIEWPORT FOUND");
       }
 
       // Reset the signal after scrolling
@@ -120,13 +94,9 @@ export default function Messages({
     }
   }, [$scrollToBottomSignal]);
 
-  // Auto-scroll to bottom when new messages are added and user is already at bottom
+  // Auto-scroll to bottom ONLY if user is already at bottom when new messages are added
   useEffect(() => {
-    if (
-      messages &&
-      isAtBottomState &&
-      scrollAreaRef.current
-    ) {
+    if (messages && isAtBottomState && scrollAreaRef.current) {
       setTimeout(() => {
         const scrollAreaViewport = document.querySelector(
           "[data-radix-scroll-area-viewport]"
@@ -139,8 +109,7 @@ export default function Messages({
         }
       }, 100);
     }
-
-    // Also re-check scroll position when messages change
+    // Re-check scroll position when messages change, but do not scroll
     setTimeout(() => {
       const scrollAreaViewport = document.querySelector(
         "[data-radix-scroll-area-viewport]"
@@ -158,11 +127,15 @@ export default function Messages({
 
   useEffect(() => {
     if (messages) {
-      const lastMessage =
-        messages[messages.length - 1];
+      const lastMessage = messages[messages.length - 1];
       const isLastAssistantMessage =
-        lastMessage?.role === "assistant" && lastMessage?.content === "";
+        lastMessage?.role === "assistant" &&
+        (lastMessage?.content === "" ||
+          (lastMessage?.toolInvocations &&
+            lastMessage.toolInvocations.some((inv) => inv.state === "call")));
+
       setIsItStreaming(isLastAssistantMessage);
+
       if (isLastAssistantMessage) {
         // Force scroll to bottom when streaming starts
         setTimeout(() => {
@@ -180,35 +153,101 @@ export default function Messages({
     }
   }, [messages]);
 
-  // Auto-scroll during streaming when content is being added
+  // Auto-scroll during streaming ONLY if user is at bottom or near bottom
   useEffect(() => {
-    if (isItStreaming && messages) {
-      const lastMessage =
-        messages[messages.length - 1];
+    if (isItStreaming && messages && isAtBottomState) {
+      const lastMessage = messages[messages.length - 1];
       if (lastMessage?.role === "assistant" && lastMessage?.content) {
-        // Only scroll if user is near the bottom to avoid interrupting reading
         const scrollAreaViewport = document.querySelector(
           "[data-radix-scroll-area-viewport]"
         );
         if (scrollAreaViewport) {
-          const { scrollTop, scrollHeight, clientHeight } = scrollAreaViewport;
-          const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
-
-          // If user is within 100px of bottom, auto-scroll
-          if (distanceFromBottom < 100) {
-            scrollAreaViewport.scrollTo({
-              top: scrollAreaViewport.scrollHeight,
-              behavior: "smooth",
-            });
-          }
+          scrollAreaViewport.scrollTo({
+            top: scrollAreaViewport.scrollHeight,
+            behavior: "smooth",
+          });
         }
       }
     }
   }, [
-    messages?.[messages?.length - 1]
-      ?.content,
+    messages?.[messages?.length - 1]?.content,
     isItStreaming,
-  ]); // Listen to content changes of last message
+    isAtBottomState,
+  ]);
+
+  // Helper function to render tool invocations
+  const renderToolInvocations = (toolInvocations: any[]) => {
+    return toolInvocations.map((toolInvocation, index) => {
+      const { toolName, toolCallId, state, args, result } = toolInvocation;
+
+      if (toolName === "generateThreePrompts") {
+        if (state === "result") {
+          // Extract prompts from the args (what was passed to the tool)
+          const prompts = args?.prompts || [];
+
+          // Only render if we have actual prompts
+          if (prompts.length === 0) return null;
+
+          return (
+            <motion.div
+              key={toolCallId}
+              className="mt-2"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{
+                duration: 0.5,
+                ease: "easeOut",
+                delay: 0.2,
+              }}
+            >
+              <div className="space-y-2">
+                {prompts.map((prompt: string, promptIndex: number) => (
+                  <motion.div
+                    key={promptIndex}
+                    className=""
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{
+                      duration: 0.4,
+                      ease: "easeOut",
+                      delay: 0.6 + promptIndex * 0.15,
+                    }}
+                  >
+                    <Button
+                      onClick={() => submitMessage(prompt)}
+                      variant="outline"
+                      className="text-left font-normal"
+                    >
+                      {prompt}
+                    </Button>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+          );
+        } else if (state === "call") {
+          return (
+            <motion.div
+              key={toolCallId}
+              className="mt-4 p-4 bg-gray-50 rounded-lg"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+            >
+              <div className="flex items-center space-x-2">
+                <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                <span className="text-gray-600">
+                  Generating follow-up questions...
+                </span>
+              </div>
+            </motion.div>
+          );
+        }
+      }
+
+      return null;
+    });
+  };
 
   return (
     <div
@@ -220,17 +259,15 @@ export default function Messages({
         <LayoutGroup>
           {messages.map((message, index) => {
             const isLastAssistantMessage =
-              message.role === "assistant" &&
-              index === messages.length - 1;
-            const isLastMessage =
-              index === messages.length - 1;
+              message.role === "assistant" && index === messages.length - 1;
+            const isLastMessage = index === messages.length - 1;
 
             return (
               <div
                 key={index}
                 className={`flex w-full mb-4 ${
                   message.role === "user" ? "justify-end" : "justify-start"
-                } ${isLastMessage ? "min-h-[65vh]" : ""}`}
+                } ${isLastMessage ? "" : ""}`}
               >
                 <div
                   className={`p-3 max-w-full ${
@@ -239,9 +276,13 @@ export default function Messages({
                       : "text-gray-900"
                   }`}
                 >
-                  
                   <div className="whitespace-pre-line break-words">
-                    {isLastAssistantMessage && isItStreaming ? (
+                    {isLastAssistantMessage &&
+                    isItStreaming &&
+                    !message.content &&
+                    !message.toolInvocations?.some(
+                      (inv) => inv.state === "result"
+                    ) ? (
                       <div className="flex items-center space-x-1">
                         <div className="flex space-x-1">
                           <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
@@ -259,40 +300,27 @@ export default function Messages({
                         </span>
                       </div>
                     ) : message.role === "assistant" ? (
-                      <div className="flex flex-col">
+                      <div className="flex flex-col w-3.5xl">
+                        {message.content && (
                           <AIResponse>{message.content}</AIResponse>
-                          {message.toolInvocations?.map((toolInvocation, index) => {
-                            const { toolName, toolCallId, state } = toolInvocation;
-                            if (state === 'result') {
-                              if (toolName === 'generateThreePrompts') {
-                                const { result } = toolInvocation;
-                                return (
-                                  <div key={toolCallId}>
-                                    {result.toString()}
-                                  </div>
-                                );
-                              }
-                            } else {
-                              return (
-                                <div key={toolCallId}>
-                                  {toolName === 'generateThreePrompts' ? (
-                                    <div>Loading three prompts...</div>
-                                  ) : null}
-                                </div>
-                              );
-                            }
-                          })}
-                       
+                        )}
+
                         {!isItStreaming && (
-                          <div>
-                            <Button variant="ghost" size="sm" className="mt-2">
+                          <div className="mt-2">
+                            <Button variant="ghost" size="sm" className="mr-2">
                               <LucideThumbsUp />
                             </Button>
-                            <Button variant="ghost" size="sm" className="mt-2">
+                            <Button variant="ghost" size="sm">
                               <LucideThumbsDown />
                             </Button>
                           </div>
                         )}
+                        {message.toolInvocations &&
+                          message.toolInvocations.length > 0 && (
+                            <div>
+                              {renderToolInvocations(message.toolInvocations)}
+                            </div>
+                          )}
                       </div>
                     ) : typeof message.content === "string" ? (
                       message.content
@@ -313,7 +341,7 @@ export default function Messages({
 
           {/* Spacer for scroll area */}
           <motion.div
-            className={`${isItStreaming ? "h-4/5" : ""}`}
+            className={`${isItStreaming ? "h-4/5" : "h-35"}`}
           ></motion.div>
         </LayoutGroup>
       </div>

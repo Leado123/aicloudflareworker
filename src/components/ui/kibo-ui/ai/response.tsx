@@ -38,7 +38,7 @@ const components: Options["components"] = {
     </ol>
   ),
   li: ({ node, children, className, ...props }) => (
-    <li className={cn("py-1", className)} {...props}>
+    <li className={cn("-my-1", className)} {...props}>
       {children}
     </li>
   ),
@@ -69,7 +69,7 @@ const components: Options["components"] = {
   ),
   h1: ({ node, children, className, ...props }) => (
     <h1
-      className={cn("mt-6 mb-2 font-semibold text-3xl", className)}
+      className={cn(" font-bold text-2xl", className)}
       {...props}
     >
       {children}
@@ -77,25 +77,25 @@ const components: Options["components"] = {
   ),
   h2: ({ node, children, className, ...props }) => (
     <h2
-      className={cn("mt-6 mb-2 font-semibold text-2xl", className)}
+      className={cn(" font-semibold text-lg", className)}
       {...props}
     >
       {children}
     </h2>
   ),
   h3: ({ node, children, className, ...props }) => (
-    <h3 className={cn("mt-6 mb-2 font-semibold text-xl", className)} {...props}>
+    <h3 className={cn(" font-semibold text-lg", className)} {...props}>
       {children}
     </h3>
   ),
   h4: ({ node, children, className, ...props }) => (
-    <h4 className={cn("mt-6 mb-2 font-semibold text-lg", className)} {...props}>
+    <h4 className={cn("font-semibold text-lg", className)} {...props}>
       {children}
     </h4>
   ),
   h5: ({ node, children, className, ...props }) => (
     <h5
-      className={cn("mt-6 mb-2 font-semibold text-base", className)}
+      className={cn(" font-semibold text-base", className)}
       {...props}
     >
       {children}

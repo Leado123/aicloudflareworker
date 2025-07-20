@@ -1,5 +1,5 @@
 import { ModeComponentProps, type Conversation } from "@/util/modeDefinitions";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useChat } from "@ai-sdk/react";
 import ChatBar from "./chatBar";
 import Messages from "./messages";
@@ -7,12 +7,24 @@ import { ScrollArea } from "./ui/scroll-area";
 import type { CoreMessage, Message } from "ai";
 import { generateEntityTitle, getModeByKey } from "@/util/modes";
 
+// Helper to prevent duplicate assistant messages
+function isDuplicateAssistantMessage(messages: Message[], newMessage: Message) {
+  if (messages.length === 0) return false;
+  const last = messages[messages.length - 1];
+  return (
+    last.role === "assistant" &&
+    newMessage.role === "assistant" &&
+    last.content === newMessage.content
+  );
+}
+
 export default function ChatMode({
   currentEntity: currentConversation,
   isEmpty: conversationEmpty,
   createEntity: createConversation,
   updateEntity: updateConversation,
 }: ModeComponentProps<Conversation>) {
+  const messagesRef = useRef<Message[]>([]);
   const {
     messages,
     input,
@@ -23,7 +35,8 @@ export default function ChatMode({
     isLoading,
   } = useChat({
     // Load messages from the current conversation if it exists.
-    initialMessages: (currentConversation?.messages as CoreMessage[] as Message[]) || [],
+    initialMessages:
+      (currentConversation?.messages as CoreMessage[] as Message[]) || [],
     // Associate the chat with the current conversation ID for context.
     id: currentConversation?.id,
 
@@ -34,9 +47,11 @@ export default function ChatMode({
     // onFinish is the most reliable place to save the conversation state,
     // as it's called after the AI response is fully streamed.
     onFinish: (message) => {
-      // The `messages` array from the hook might not be updated yet, so we
-      // manually construct the final list with the message from the callback.
-      const finalMessages = [...messages, message];
+      // Prevent duplicate assistant messages
+      const finalMessages = [...messagesRef.current];
+      if (!isDuplicateAssistantMessage(finalMessages, message)) {
+        finalMessages.push(message);
+      }
 
       if (currentConversation) {
         // If we were in an existing conversation, update it.
@@ -60,6 +75,11 @@ export default function ChatMode({
       }
     },
   });
+
+  // Keep the ref in sync with the latest messages from the hook.
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   // This effect syncs the `useChat` hook with the app's global state
   // when the user switches between conversations.
@@ -92,6 +112,7 @@ export default function ChatMode({
             <Messages
               messages={messages}
               submitMessage={handleSuggestedPrompt}
+              isLoading={isLoading}
             />
           </ScrollArea>
           <ChatBar
