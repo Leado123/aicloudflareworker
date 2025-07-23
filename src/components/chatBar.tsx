@@ -123,7 +123,17 @@ export default function ChatBar({
           : `absolute bottom-0 left-0 right-0 w-full p-4 flex flex-col items-center gap-4`
       }
     >
+     
       <AnimatePresence>
+        {$conversationEmpty && <motion.div
+          initial={{ opacity: 0}}
+          animate={{ opacity: 1}}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="flex flex-wrap mb-10 gap-2 mt-4 justify-center"
+        >
+          <text className="text-2xl font-bold">SS STUDIO</text>
+          </motion.div>
+}
         {!$conversationEmpty && !$isAtBottom && (
           <motion.button
             className="absolute top-[-4em] cursor-pointer p-3 rounded-full backdrop-blur-lg border shadow"
@@ -258,7 +268,7 @@ export default function ChatBar({
                     title={isSearchEnabled ? "Disable search" : "Enable search"}
                   >
                     <LucideGlobe className="w-4 h-4" />
-                    <text>Search</text>
+                    <text>Search the Web</text>
                   </button>
                 </div>
 
@@ -273,7 +283,7 @@ export default function ChatBar({
                   {/* Submit button */}
                   <button
                     type="submit"
-                    className={`p-3 rounded-lg transition-all ${
+                    className={`p-3 rounded-3xl transition-all ${
                       input.trim() 
                         ? "bg-blue-600 hover:bg-blue-700 text-white shadow-sm" 
                         : "bg-gray-100 text-gray-400 cursor-not-allowed"
@@ -305,19 +315,33 @@ export default function ChatBar({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="flex flex-wrap gap-2 mt-4 justify-center"
+            className="flex flex-wrap gap-2 mt-4 justify-center group"
           >
             {suggestions.map((suggestion, index) => (
-              <Button
+              <motion.div
                 key={index}
-                variant="outline"
-                size="sm"
-                onClick={() => handleSuggestionClick(suggestion.label)}
-                className="flex items-center gap-2 px-4 py-2 rounded-full border-gray-200 hover:border-gray-300 transition-colors"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{
+                  duration: 0.4,
+                  delay: 0.3 + index * 0.08,
+                }}
+                whileHover={{
+                  scale: 1.06,
+                  boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+                  transition: { duration: 0.18 },
+                }}
               >
-                <span>{suggestion.icon}</span>
-                <span>{suggestion.label}</span>
-              </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleSuggestionClick(suggestion.label)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-full border-gray-200 hover:border-gray-300 transition-colors"
+                >
+                  <span>{suggestion.icon}</span>
+                  <span>{suggestion.label}</span>
+                </Button>
+              </motion.div>
             ))}
           </motion.div>
         )}

@@ -8,7 +8,7 @@ import { Button } from "./ui/button";
 import { useModeEntities, useModeSwitcher } from "./ModeProvider";
 import type { Conversation, CraftingBench, Document, BaseEntity } from "@/util/modeDefinitions";
 import { allModes, type ModeKey } from "@/util/modes";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 // Create a simple signal for sidebar state
 let sidebarToggleListeners: Array<() => void> = [];
@@ -25,6 +25,8 @@ function SideBar() {
     const [isMouseInBounds, setIsMouseInBounds] = useState(false);
     const [previousSidebarState, setPreviousSidebarState] = useState(false); // Store previous state for calculator mode
     const [hasMounted, setHasMounted] = useState(false); // Track if the component has mounted to avoid animating on first load
+    const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const sidebarRef = useRef<HTMLDivElement>(null);
 
     // In calculator mode, sidebar should always be in drawer mode
     const isCalculatorMode = currentMode === 'calculator';
@@ -33,6 +35,50 @@ function SideBar() {
     // On desktop: show unless completely hidden from topbar
     // On mobile: use overlay system
     const shouldShowSidebar = !isAutoHidden && !isCollapsed;
+
+    // Auto-hide function with timeout
+    const scheduleAutoHide = () => {
+        if (hideTimeoutRef.current) {
+            clearTimeout(hideTimeoutRef.current);
+        }
+        hideTimeoutRef.current = setTimeout(() => {
+            if (isCollapsed || isAutoHidden) {
+                setIsMouseInBounds(false);
+            }
+        }, 500); // Hide after 500ms of inactivity
+    };
+
+    // Clear auto-hide timeout
+    const clearAutoHide = () => {
+        if (hideTimeoutRef.current) {
+            clearTimeout(hideTimeoutRef.current);
+            hideTimeoutRef.current = null;
+        }
+    };
+
+    // Enhanced mouse leave detection
+    const handleMouseLeave = (e: React.MouseEvent) => {
+        // Check if mouse is actually leaving towards the left edge
+        const rect = sidebarRef.current?.getBoundingClientRect();
+        if (rect && e.clientX < rect.left) {
+            setIsMouseInBounds(false);
+            clearAutoHide();
+        } else {
+            // If not clearly leaving to the left, schedule auto-hide
+            scheduleAutoHide();
+        }
+    };
+
+    // Global mouse move handler to detect when mouse goes far from sidebar
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+        if (isMouseInBounds && (isCollapsed || isAutoHidden)) {
+            // If mouse is more than 300px from the left edge, hide sidebar
+            if (e.clientX > 300) {
+                setIsMouseInBounds(false);
+                clearAutoHide();
+            }
+        }
+    };
 
     // Check window size and auto-hide sidebar if needed
     useEffect(() => {
@@ -51,6 +97,9 @@ function SideBar() {
         // Listen for resize events
         window.addEventListener('resize', checkWindowSize);
         
+        // Global mouse move listener
+        document.addEventListener('mousemove', handleGlobalMouseMove);
+        
         // Listen for topbar toggle
         const handleTopbarToggle = () => {
             setIsCollapsed(prev => !prev);
@@ -59,10 +108,15 @@ function SideBar() {
         
         return () => {
             window.removeEventListener('resize', checkWindowSize);
+            document.removeEventListener('mousemove', handleGlobalMouseMove);
             // Remove the listener
             sidebarToggleListeners = sidebarToggleListeners.filter(listener => listener !== handleTopbarToggle);
+            // Clear any pending timeouts
+            if (hideTimeoutRef.current) {
+                clearTimeout(hideTimeoutRef.current);
+            }
         };
-    }, []); // Update dependencies
+    }, [isMouseInBounds, isCollapsed, isAutoHidden]);
 
     // Handle calculator mode transitions
     useEffect(() => {
@@ -80,6 +134,21 @@ function SideBar() {
     useEffect(() => {
         setHasMounted(true);
     }, []);
+
+    // Document-level mouseleave to close sidebar if mouse leaves window
+    useEffect(() => {
+        const handleMouseLeaveWindow = (e: MouseEvent) => {
+            // If mouse leaves the window (e.relatedTarget is null), close sidebar
+            if (!e.relatedTarget && (isCollapsed || isAutoHidden)) {
+                setIsMouseInBounds(false);
+                clearAutoHide();
+            }
+        };
+        document.addEventListener('mouseleave', handleMouseLeaveWindow);
+        return () => {
+            document.removeEventListener('mouseleave', handleMouseLeaveWindow);
+        };
+    }, [isCollapsed, isAutoHidden]);
 
     // Get icon for mode
     const getModeIcon = (modeKey: ModeKey) => {
@@ -223,18 +292,19 @@ function SideBar() {
                 )}
             </div>
 
-            {/* Sidebar trigger zone - narrow detection area */}
+            {/* Sidebar trigger zone - ultra-narrow detection area */}
             {(isCollapsed || isAutoHidden) && !isMouseInBounds && (
                 <div
                     className="fixed left-0 z-30"
                     style={{
-                        width: isCalculatorMode ? 10 : 100, // Narrow trigger zone
+                        width: 12, // Ultra-narrow trigger zone
                         height: "100vh",
                         top: "0",
                         backgroundColor: "transparent"
                     }}
                     onMouseEnter={() => {
                         setIsMouseInBounds(true);
+                        clearAutoHide();
                     }}
                 />
             )}
@@ -258,11 +328,7 @@ function SideBar() {
             {/* Visible floating sidebar - shows in different scenarios */}
             <motion.div
                 key="morphing-sidebar"
-                onMouseLeave={() => {
-                    if (isCollapsed || isAutoHidden) {
-                        setIsMouseInBounds(false);
-                    }
-                }}
+                onMouseLeave={handleMouseLeave}
                 animate={{
                     opacity: shouldShowSidebar || isMouseInBounds ? 1 : 0,
                     x: shouldShowSidebar || isMouseInBounds ? 0 : -256,
@@ -282,9 +348,20 @@ function SideBar() {
                     mass: 0.9
                 }}
                 className="fixed left-0 z-40"
+                ref={sidebarRef}
             >
                 <motion.div 
                     className="w-64 h-full shadow-inner border-r bg-neutral-50 text-gray-300 flex flex-col relative"
+                    onMouseEnter={() => {
+                        if (isCollapsed || isAutoHidden) {
+                            clearAutoHide();
+                        }
+                    }}
+                    onMouseMove={() => {
+                        if (isCollapsed || isAutoHidden) {
+                            clearAutoHide();
+                        }
+                    }}
                     animate={{
                         borderRadius: shouldShowSidebar && !isAutoHidden ? "0px" : "0px 12px 12px 0px",
                         paddingTop: shouldShowSidebar && !isAutoHidden ? "3rem" : "2.5rem",
