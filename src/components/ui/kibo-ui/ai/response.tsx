@@ -33,22 +33,22 @@ export type AIResponseProps = HTMLAttributes<HTMLDivElement> & {
 
 const components: Options["components"] = {
   ol: ({ node, children, className, ...props }) => (
-    <ol className={cn("ml-4 list-outside list-decimal", className)} {...props}>
+    <ol className={cn("list-outside list-decimal ml-6 my-4", className)} {...props}>
       {children}
     </ol>
   ),
   li: ({ node, children, className, ...props }) => (
-    <li className={cn("-my-1", className)} {...props}>
+    <li className={cn("mb-2 pl-1", className)} {...props}>
       {children}
     </li>
   ),
   p: ({ node, children, className, ...props }) => (
-    <p className={cn("-my-2", className)} {...props}>
+    <p className={cn("my-1", className)} {...props}>
       {children}
     </p>
   ),
   ul: ({ node, children, className, ...props }) => (
-    <ul className={cn("ml-4 list-outside list-decimal", className)} {...props}>
+    <ul className={cn("list-outside list-disc ml-6 my-4", className)} {...props}>
       {children}
     </ul>
   ),
@@ -180,7 +180,7 @@ export const AIResponse = memo(
   ({ className, options, children, ...props }: AIResponseProps) => (
     <div
       className={cn(
-        "w-full max-w-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
+        "w-full max-w-full airesponse [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
         className
       )}
       {...props}

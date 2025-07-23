@@ -145,7 +145,9 @@ export default function Messages({ submitMessage, messages }: MessagesProps) {
           (lastMessage?.toolInvocations &&
             lastMessage.toolInvocations.some((inv) => inv.state === "call")));
 
-      setIsItStreaming(isLastAssistantMessage);
+      setIsItStreaming(
+        typeof isLastAssistantMessage === 'undefined' ? null : Boolean(isLastAssistantMessage)
+      );
 
       if (isLastAssistantMessage) {
         // Force scroll to bottom when streaming starts
@@ -256,6 +258,117 @@ export default function Messages({ submitMessage, messages }: MessagesProps) {
         }
       }
 
+      if (toolName === "searchWeb") {
+        if (state === "result") {
+          const searchResult = result;
+          const searchQuery = searchResult?.query || args?.query || "";
+          const searchResults = searchResult?.results || [];
+          const searchSuccess = searchResult?.success;
+          const searchError = searchResult?.error;
+
+          return (
+            <motion.div
+              key={toolCallId}
+              className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{
+                duration: 0.5,
+                ease: "easeOut",
+                delay: 0.2,
+              }}
+            >
+              <div className="mb-3">
+                <div className="flex items-center space-x-2 mb-2">
+                  <div className="w-4 h-4 bg-blue-600 rounded-full flex items-center justify-center">
+                    <svg className="w-2 h-2 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <span className="font-medium text-blue-900">Web Search Results</span>
+                </div>
+                <p className="text-sm text-blue-700 mb-3">
+                  Searched for: <strong>"{searchQuery}"</strong>
+                </p>
+              </div>
+
+              {searchError ? (
+                <div className="text-red-600 text-sm">
+                  Search failed: {searchError}
+                </div>
+              ) : searchSuccess && searchResults.length > 0 ? (
+                <div className="space-y-3">
+                  {searchResults.map((result: any, resultIndex: number) => (
+                    <motion.div
+                      key={resultIndex}
+                      className="bg-white border border-blue-200 rounded-md p-3"
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{
+                        duration: 0.4,
+                        ease: "easeOut",
+                        delay: 0.3 + resultIndex * 0.1,
+                      }}
+                    >
+                      <h4 className="font-medium text-gray-900 mb-1">
+                        <a
+                          href={result.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hover:text-blue-600 transition-colors"
+                        >
+                          {result.title || "Untitled"}
+                        </a>
+                      </h4>
+                      <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+                        {result.content || "No description available"}
+                      </p>
+                      <div className="flex items-center justify-between">
+                        <a
+                          href={result.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-600 hover:underline"
+                        >
+                          {result.url}
+                        </a>
+                        {result.engines && result.engines.length > 0 && (
+                          <span className="text-xs text-gray-500">
+                            via {result.engines.join(", ")}
+                          </span>
+                        )}
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-gray-600 text-sm">
+                  No search results found.
+                </div>
+              )}
+            </motion.div>
+          );
+        } else if (state === "call") {
+          const searchQuery = args?.query || "";
+          return (
+            <motion.div
+              key={toolCallId}
+              className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+            >
+              <div className="flex items-center space-x-2">
+                <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                <span className="text-gray-600">
+                  Searching the web{searchQuery ? ` for "${searchQuery}"` : ""}...
+                </span>
+              </div>
+            </motion.div>
+          );
+        }
+      }
+
       return null;
     });
   };
@@ -313,7 +426,7 @@ export default function Messages({ submitMessage, messages }: MessagesProps) {
                     ) : message.role === "assistant" ? (
                       <div className="flex flex-col w-3.5xl">
                         {message.content && (
-                          <AIResponse>{message.content}</AIResponse>
+                          <AIResponse className="no-markdown-margin">{message.content}</AIResponse>
                         )}
 
                         {!isItStreaming && (

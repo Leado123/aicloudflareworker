@@ -101,6 +101,7 @@ function SideBar() {
     const ModeEntityList = ({ modeKey }: { modeKey: ModeKey }) => {
         const { 
             entities, 
+            currentEntity,
             createEntity,
             setCurrentEntity,
             deleteEntity 
@@ -122,6 +123,7 @@ function SideBar() {
         };
 
         const handleDeleteEntity = (entityId: string) => {
+            // Delete the entity - the mode system will automatically clear currentEntity if needed
             deleteEntity(entityId);
         };
 

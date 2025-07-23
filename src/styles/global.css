@@ -163,3 +163,30 @@ html[data-scroll-locked] body {
   padding-right: 0 !important;
   margin-right: 0 !important;
 }
+
+.no-markdown-margin > *:first-child {
+  margin-top: 0 !important;
+}
+.no-markdown-margin > *:last-child {
+  margin-bottom: 0 !important;
+}
+
+.airesponse li > p {
+  display: inline;
+  margin: 0;
+}
+
+.airesponse li > strong,
+.airesponse li > b {
+  vertical-align: baseline;
+  font-weight: 600;
+  display: inline;
+}
+
+/* Line clamp utility for search results */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
