@@ -1,72 +1,29 @@
-version: "3.9"
+version: '3.8'
+
 services:
-  web:
-    build:
-      context: .
-      # No dockerfile specified, so it will use the default Dockerfile in the context
+  db:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: astrodb
+      POSTGRES_USER: astro
+      POSTGRES_PASSWORD: astro
     ports:
-      - "4321:4321" # Astro dev server
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  app:
+    build: .
+    depends_on:
+      - db
     environment:
       DATABASE_URL: postgresql://astro:astro@db:5432/astrodb?schema=public
       PORT: 4321
-      GEMINI_API_KEY: "AIzaSyCfNQuSrU46EFKrx_RKQCdtHT2jl3AcXBQ" # Replace with a real value or use .env
-    depends_on:
-      - db
-    volumes:
-      - .:/app  # Mount the project directory for code changes
-      - node_modules:/app/node_modules # Prevent issues with volume mounting and node_modules
-    command: ["bun", "run", "dev", "--host"] # Override the CMD in the Dockerfile
-    # Add a command to run Prisma generate before starting the dev server
-    entrypoint: |
-      #!/bin/sh
-      set -e
-      echo "Running Prisma generate..."
-      bun x prisma generate
-      echo "Starting the application..."
-      exec "$@"`
-    networks:
-      - mynetwork # Add both containers to the same network
-
-  db:
-    image: postgres:16-alpine
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
     ports:
-      - "5432:5432"
-    environment:
-      POSTGRES_USER: astro
-      POSTGRES_PASSWORD: astro
-      POSTGRES_DB: astrodb
-    volumes:
-      - db_data:/var/lib/postgresql/data
-    healthcheck: # Add a healthcheck to ensure the database is ready before starting the web service
-      test: ["CMD-SHELL", "pg_isready -U astro -d astrodb"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - mynetwork # Add both containers to the same network
-
-  code-server:
-    image: lscr.io/linuxserver/code-server:latest # Or your preferred code-server image
-    ports:
-      - "8080:8080" # Or your preferred port for code-server
-    volumes:
-      - .:/app # Mount the same project directory
-      - code-server-data:/config # Persist code-server configuration
-    environment:
-      PUID: 1000 # Replace with your user ID
-      PGID: 1000 # Replace with your group ID
-      TZ: Etc/UTC # Replace with your timezone
-      PASSWORD: your_secret_password # Set a password for code-server
-    depends_on:
-      - web # Ensure the web container is running first
-    networks:
-      - mynetwork # Add both containers to the same network
-
-networks:
-  mynetwork: # Define a network for the containers to communicate
-    driver: bridge
+      - "4321:4321"
+    # Remove any PostgreSQL install/init logic from your Dockerfile and startup scripts
 
 volumes:
-  db_data:
-  node_modules:
-  code-server-data:
+  postgres_data:
