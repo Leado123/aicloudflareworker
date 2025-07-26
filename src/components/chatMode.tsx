@@ -28,7 +28,7 @@ export default function ChatMode({
   const messagesRef = useRef<Message[]>([]);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [isSearchEnabled, setIsSearchEnabled] = useState<boolean>(false);
-  
+
   const {
     messages,
     input,
@@ -53,19 +53,19 @@ export default function ChatMode({
     fetch: async (url, options) => {
       const hasFiles = attachedFiles.length > 0;
       const hasSearchEnabled = isSearchEnabled;
-      
+
       if (hasFiles || hasSearchEnabled) {
         // Create FormData for file upload or search state
         const formData = new FormData();
-        
+
         // Add messages data
         if (options?.body) {
           formData.append("messages", options.body as string);
         }
-        
+
         // Add search state
         formData.append("enableSearch", isSearchEnabled.toString());
-        
+
         // Add files if any
         if (hasFiles) {
           attachedFiles.forEach((file) => {
@@ -91,13 +91,13 @@ export default function ChatMode({
         // Standard JSON request but include search state
         const body = JSON.parse(options.body as string);
         body.enableSearch = isSearchEnabled;
-        
+
         return fetch(url, {
           ...options,
           body: JSON.stringify(body),
         });
       }
-      
+
       return fetch(url, options);
     },
 
@@ -168,8 +168,8 @@ export default function ChatMode({
 
   return (
     <div className="w-full h-full flex-1 flex">
-      {showConversation ? (
-        <div className="w-full h-full flex-1 relative">
+      <div className="w-full h-full flex-1 relative">
+        {showConversation && (
           <ScrollArea className="w-full h-full">
             <Messages
               messages={messages}
@@ -177,39 +177,22 @@ export default function ChatMode({
               isLoading={isLoading}
             />
           </ScrollArea>
-          <ChatBar
-            currentConversation={currentConversation}
-            conversationEmpty={false} // The bar is at the bottom in this view
-            createConversation={createConversation}
-            input={input}
-            handleInputChange={handleInputChange}
-            submitMessage={handleSubmit} // Pass the default handler
-            clearMessages={clearMessages}
-            setCurrentConversation={setCurrentConversation}
-            attachedFiles={attachedFiles}
-            setAttachedFiles={setAttachedFiles}
-            isSearchEnabled={isSearchEnabled}
-            setIsSearchEnabled={setIsSearchEnabled}
-          />
-        </div>
-      ) : (
-        <div className="w-full h-full flex-1 relative">
-          <ChatBar
-            currentConversation={currentConversation}
-            conversationEmpty={true} // The bar is in the center in this view
-            createConversation={createConversation}
-            input={input}
-            handleInputChange={handleInputChange}
-            submitMessage={handleSubmit}
-            clearMessages={clearMessages}
-            setCurrentConversation={setCurrentConversation}
-            attachedFiles={attachedFiles}
-            setAttachedFiles={setAttachedFiles}
-            isSearchEnabled={isSearchEnabled}
-            setIsSearchEnabled={setIsSearchEnabled}
-          />
-        </div>
-      )}
+        )}
+        <ChatBar
+          currentConversation={currentConversation}
+          conversationEmpty={!showConversation} // true if not showing conversation (centered), false if showing (bottom)
+          createConversation={createConversation}
+          input={input}
+          handleInputChange={handleInputChange}
+          submitMessage={handleSubmit}
+          clearMessages={clearMessages}
+          setCurrentConversation={setCurrentConversation}
+          attachedFiles={attachedFiles}
+          setAttachedFiles={setAttachedFiles}
+          isSearchEnabled={isSearchEnabled}
+          setIsSearchEnabled={setIsSearchEnabled}
+        />
+      </div>
     </div>
   );
 }

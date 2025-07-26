@@ -70,6 +70,10 @@ export interface ModeDefinition<T extends BaseEntity> {
     deserialize: (data: any) => T;
     isEmpty: (entity: T) => boolean;
     apiActions?: Record<string, APIAction>; // Add API actions
+    // Optional sync hooks for external systems
+    onEntityCreated?: (entity: T) => void;
+    onEntityUpdated?: (entity: T) => void;
+    onEntityDeleted?: (entityId: string) => void;
 }
 
 // Props that every mode component will receive
@@ -173,6 +177,10 @@ export function createModeStores<T extends BaseEntity>(mode: ModeDefinition<T>) 
     const addEntity = (entity: T) => {
         const current = entities.get();
         entities.set([...current, entity]);
+        // Call sync hook if defined
+        if (mode.onEntityCreated) {
+            mode.onEntityCreated(entity);
+        }
     };
 
     const createEntity = (data?: Partial<T>): string => {
@@ -192,13 +200,20 @@ export function createModeStores<T extends BaseEntity>(mode: ModeDefinition<T>) 
 
     const updateEntity = (id: string, updates: Partial<T>) => {
         const current = entities.get();
-        entities.set(
-            current.map(entity =>
-                entity.id === id
-                    ? { ...entity, ...updates, updatedAt: new Date() }
-                    : entity
-            )
+        const updatedEntities = current.map(entity =>
+            entity.id === id
+                ? { ...entity, ...updates, updatedAt: new Date() }
+                : entity
         );
+        entities.set(updatedEntities);
+        
+        // Call sync hook if defined
+        if (mode.onEntityUpdated) {
+            const updatedEntity = updatedEntities.find(e => e.id === id);
+            if (updatedEntity) {
+                mode.onEntityUpdated(updatedEntity);
+            }
+        }
     };
 
     const deleteEntity = (id: string) => {
@@ -207,6 +222,11 @@ export function createModeStores<T extends BaseEntity>(mode: ModeDefinition<T>) 
 
         if (currentEntityId.get() === id) {
             currentEntityId.set(null);
+        }
+
+        // Call sync hook if defined
+        if (mode.onEntityDeleted) {
+            mode.onEntityDeleted(id);
         }
     };
 

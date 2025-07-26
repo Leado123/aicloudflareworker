@@ -1,7 +1,7 @@
 import { type Conversation } from "@/util/modeDefinitions";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStore } from "@nanostores/react";
-import { LucideArrowDown, LucideArrowRight, LucidePlus, LucidePaperclip, LucideSearch, LucideCornerDownLeft, LucideUpload, LucideGlobe2, LucideGlobe } from "lucide-react";
+import { LucideArrowDown, LucideArrowRight, LucidePlus, LucidePaperclip, LucideSearch, LucideCornerDownLeft, LucideUpload, LucideGlobe2, LucideGlobe, LucideCornerUpRight, LucideFile } from "lucide-react";
 import React, { useRef, useState } from "react";
 import { isAtBottomAtom, scrollToBottomSignal } from "./messages";
 import { Button } from "./ui/button";
@@ -49,12 +49,12 @@ export default function ChatBar({
     if (clearMessages) {
       clearMessages();
     }
-    
+
     // Clear the current conversation to show empty state
     if (setCurrentConversation) {
       setCurrentConversation(null);
     }
-    
+
     // Don't create a new conversation here - it will be created automatically
     // when the user sends their first message in the empty state
   };
@@ -82,17 +82,17 @@ export default function ChatBar({
   const handleSuggestionClick = (suggestion: string) => {
     // Create a synthetic form event to submit the suggestion
     const syntheticEvent = {
-      preventDefault: () => {},
+      preventDefault: () => { },
       target: {},
     } as React.FormEvent<HTMLFormElement>;
-    
+
     // Set the input value and submit
     const event = {
       target: { value: suggestion },
     } as React.ChangeEvent<HTMLTextAreaElement>;
-    
+
     handleInputChange(event);
-    
+
     // Submit after a brief delay to ensure state updates
     setTimeout(() => {
       submitMessage(syntheticEvent);
@@ -107,70 +107,75 @@ export default function ChatBar({
     { icon: "⋯", label: "More" },
   ];
 
+  // Dynamic className based on conversation state
+  const containerClassName = $conversationEmpty
+    ? "absolute inset-0 flex flex-col items-center justify-center px-4" // Middle positioning
+    : "absolute bottom-0 left-0 right-0 w-full p-2 flex flex-col items-center gap-2"; // Bottom positioning
+
   return (
+
     <motion.div
       layout
-      initial={{ y: 50 }}
-      animate={{ y: 0 }}
-      transition={{
-        type: "spring",
-        stiffness: 300,
-        damping: 20,
-      }}
-      className={
-        $conversationEmpty
-          ? `absolute inset-0 flex flex-col items-center justify-center px-4`
-          : `absolute bottom-0 left-0 right-0 w-full p-4 flex flex-col items-center gap-4`
-      }
+      className={`${$conversationEmpty
+        ? "absolute inset-0 flex flex-col items-center justify-center px-4" // Middle positioning
+        : "absolute bottom-0 left-0 right-0 w-full p-2 flex flex-col items-center gap-2"}`}
+
     >
-     
-      <AnimatePresence>
-        {$conversationEmpty && <motion.div
-          initial={{ opacity: 0}}
-          animate={{ opacity: 1}}
-          transition={{ duration: 0.5, delay: 0.2 }}
+      {/* Branding only in empty state */}
+      {$conversationEmpty && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2, duration: 0.5 }}
           className="flex flex-wrap mb-10 gap-2 mt-4 justify-center"
         >
           <text className="text-2xl font-bold">SS STUDIO</text>
-          </motion.div>
-}
-        {!$conversationEmpty && !$isAtBottom && (
-          <motion.button
-            className="absolute top-[-4em] cursor-pointer p-3 rounded-full backdrop-blur-lg border shadow"
-            onClick={() => {
-              const currentValue = scrollToBottomSignal.get();
-              scrollToBottomSignal.set(currentValue + 1);
-            }}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            title="Scroll to bottom"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <LucideArrowDown className="w-5 h-5 text-black" />
-          </motion.button>
-        )}
-      </AnimatePresence>
+        </motion.div>
+      )}
+
+      {/* Scroll to bottom button only in non-empty state and not at bottom */}
+      {!$conversationEmpty && (
+        <AnimatePresence>
+          {!$isAtBottom && (
+            <motion.button
+              className="absolute top-[-4em] cursor-pointer p-3 rounded-full backdrop-blur-lg border shadow"
+              onClick={() => {
+                const currentValue = scrollToBottomSignal.get();
+                scrollToBottomSignal.set(currentValue + 1);
+              }}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              title="Scroll to bottom"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <LucideArrowDown className="w-5 h-5 text-black" />
+            </motion.button>
+          )}
+        </AnimatePresence>
+      )}
 
       <div className="w-full max-w-4xl">
-        {/* Main input form with height */}
+        {/* Main input form */}
         <form onSubmit={handleFormSubmit} className="w-full">
-          <div className="bg-white border border-gray-200 rounded-4xl shadow-sm hover:shadow-md transition-shadow duration-200 p-2">
-            
+          <div className={`${input.trim()
+            ? "bg-gradient-to-b from-blue-50 border-blue-400 border-2  shadow-lg"
+            : "bg-white border border-gray-200"} 
+          rounded-4xl shadow-sm transition-all hover:shadow-md duration-200 p-2`}>
             {/* Attached files display box */}
             {attachedFiles.length > 0 && (
-              <div className="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-xl">
-                <div className="text-sm font-medium text-gray-700 mb-3">Attached Files:</div>
-                <div className="space-y-2">
+              <div className="p-2 gap-2 rounded-3xl">
+                <div className="text-sm font-medium text-gray-700">Attached Files:</div>
+                <div className="gap-2 flex w-full overflow-x-scroll">
                   {attachedFiles.map((file, index) => (
                     <div
                       key={index}
-                      className="flex items-center justify-between bg-white border border-gray-200 rounded-lg p-3"
+                      className="flex items-center gap-2 justify-between bg-white border border-gray-200 rounded-lg p-3"
                     >
-                      <div className="flex items-center space-x-3">
-                        <div className="text-blue-600">
-                          <LucidePaperclip className="w-4 h-4" />
+                      <div className="flex gap-2 items-center">
+                        <div className="text-gray-600">
+                          <LucideFile className="w-4 h-4" />
                         </div>
                         <div>
                           <div className="text-sm font-medium text-gray-900">{file.name}</div>
@@ -195,109 +200,96 @@ export default function ChatBar({
               </div>
             )}
 
-            {/* Search mode indicator */}
-            {isSearchEnabled && (
-              <div className="mb-2 p-2 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2">
-                <LucideGlobe className="w-4 h-4 text-blue-600" />
-                <span className="text-sm text-blue-800 font-medium">Search mode enabled</span>
-                <button
-                  type="button"
-                  onClick={() => setIsSearchEnabled(false)}
-                  className="ml-auto text-blue-600 hover:text-blue-800"
-                  title="Disable search"
-                >
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                  </svg>
-                </button>
-              </div>
-            )}
 
             {/* Input section */}
             <div className="flex flex-col gap-2">
               {/* Multiline textarea */}
-
-                <textarea
-                  className="w-full resize-none outline-none text-base p-2 focus:ring-0"
-                  placeholder="Ask anything..."
-                  value={input}
-                  autoFocus
-                  onChange={handleInputChange}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      (e.target as HTMLTextAreaElement).form?.requestSubmit();
-                    }
-                  }}
-                  rows={1}
-                  style={{
-                    maxHeight: "120px", // 3 * ~40px line-height
-                    overflowY: "auto",
-                  }}
-                  onInput={e => {
-                    const textarea = e.currentTarget;
-                    // Calculate the base scrollHeight for a single row if not already set
-                    if (!(textarea as any)._baseScrollHeight) {
-                      (textarea as any)._baseScrollHeight = textarea.scrollHeight;
-                    }
-                    textarea.rows = 1; // Always reset to 1 before measuring
-                    const lineHeight = parseInt(window.getComputedStyle(textarea).lineHeight || "20", 10);
-                    const maxRows = 3;
-                    const baseScrollHeight = (textarea as any)._baseScrollHeight || 0;
-                    const lines = Math.floor((textarea.scrollHeight - baseScrollHeight) / lineHeight) + 1;
-                    textarea.rows = Math.max(1, Math.min(maxRows, lines));
-                  }}
-                />
-
+              <textarea
+                className="w-full resize-none outline-none font-medium drop-shadow-lg text-base p-2 focus:ring-0"
+                placeholder="Ask anything..."
+                value={input}
+                autoFocus
+                onChange={handleInputChange}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    (e.target as HTMLTextAreaElement).form?.requestSubmit();
+                  }
+                }}
+                rows={1}
+                style={{
+                  maxHeight: "120px", // 3 * ~40px line-height
+                  overflowY: "auto",
+                }}
+                onInput={e => {
+                  const textarea = e.currentTarget;
+                  // Calculate the base scrollHeight for a single row if not already set
+                  if (!(textarea as any)._baseScrollHeight) {
+                    (textarea as any)._baseScrollHeight = textarea.scrollHeight;
+                  }
+                  textarea.rows = 1; // Always reset to 1 before measuring
+                  const lineHeight = parseInt(window.getComputedStyle(textarea).lineHeight || "20", 10);
+                  const maxRows = 3;
+                  const baseScrollHeight = (textarea as any)._baseScrollHeight || 0;
+                  const lines = Math.floor((textarea.scrollHeight - baseScrollHeight) / lineHeight) + 1;
+                  textarea.rows = Math.max(1, Math.min(maxRows, lines));
+                }}
+              />
               {/* Button row */}
               <div className="flex items-center justify-between">
                 {/* Left side icons */}
-                <div className="flex items-center gap-2 [&>button]:text-sm [&>button]:text-neutral-600 [&>button]:p-2 [&>button]:pl-3 [&>button]:pr-3 [&>button]:flex [&>button]:font-medium [&>button]:place-items-center [&>button]:gap-2 [&>button]:border [&>button]:rounded-3xl [&>button]:transition-colors [&>button:hover]:bg-gray-100">
+                <div className="flex items-center gap-2 [&>button]:bg-white 
+                 [&>button]:shadow-sm [&>button]:text-sm 
+                [&>button]:cursor-pointer [&>button]:text-neutral-800 [&>button]:p-2 [&>button]:pl-3 
+                [&>button]:pr-3 [&>button]:flex [&>button]:font-medium [&>button]:place-items-center [&>button]:gap-2 
+               [&>button]:border-neutral-700 [&>button]:border-b-4 [&>button]:border-1 [&>button]:rounded-3xl [&>button]:transition-colors [&>button]:duration-200 [&>button]:ease-in-out 
+                [&>button:hover]:bg-yellow-50 [&>button:hover]:text-black">
                   <button
                     type="button"
                     onClick={handleFileAttach}
                     title="Attach file"
+                    className="transition-colors duration-200 ease-in-out"
                   >
                     <LucideUpload className="w-4 h-4" />
-                    <text>Upload</text>
+                    <span>Upload</span>
                   </button>
                   <button
                     type="button"
                     onClick={handleSearchToggle}
-                    className={`hover:text-gray-700 ${isSearchEnabled ? 'bg-blue-100 text-blue-700 border-blue-300' : ''}`}
+                    className={`transition-colors duration-200 ease-in-out hover:text-gray-700 ${isSearchEnabled
+                      ? 'bg-blue-600 text-white border-blue-700 !bg-blue-600 !text-white'
+                      : ''
+                      }`}
+                    style={isSearchEnabled ? { backgroundColor: '#2563eb', color: '#fff', borderColor: '#1d4ed8' } : undefined}
                     title={isSearchEnabled ? "Disable search" : "Enable search"}
                   >
                     <LucideGlobe className="w-4 h-4" />
-                    <text>Search the Web</text>
+                    <span>Search the Web</span>
                   </button>
                 </div>
-
                 {/* Right side buttons */}
                 <div className="flex items-center gap-2">
                   {/* Enter hint */}
-                  <div className="flex items-center text-xs text-gray-400 space-x-1">
-                    <LucideCornerDownLeft className="w-3 h-3" />
+                  <div className="flex items-center text-xs space-x-1">
+                    <LucideCornerDownLeft strokeWidth={3} className="w-3 h-3" />
                     <span>Enter to send</span>
                   </div>
-                  
                   {/* Submit button */}
                   <button
                     type="submit"
-                    className={`p-3 rounded-3xl transition-all ${
-                      input.trim() 
-                        ? "bg-blue-600 hover:bg-blue-700 text-white shadow-sm" 
-                        : "bg-gray-100 text-gray-400 cursor-not-allowed"
-                    }`}
+                    className={`p-2 rounded-3xl transition-all ${input.trim()
+                      ? "bg-gradient-to-b from-purple-500 border-purple-600 border-2 text-white shadow-lg"
+                      : "bg-gradient-to-b from-neutral-500 text-neutral-600 border-neutral-600 border-2 cursor-not-allowed"
+                      }`}
                     disabled={!input.trim()}
                     title="Send message"
                   >
-                    <LucideArrowRight className="w-5 h-5" />
+                    <LucideArrowRight strokeWidth={3} className="w-5 h-5 drop-shadow-2xl" />
                   </button>
                 </div>
               </div>
             </div>
           </div>
-
           {/* Hidden file input */}
           <input
             ref={fileInputRef}
@@ -309,13 +301,13 @@ export default function ChatBar({
           />
         </form>
 
-        {/* Suggestion buttons */}
+        {/* Suggestion buttons below chatbar when empty */}
         {$conversationEmpty && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="flex flex-wrap gap-2 mt-4 justify-center group"
+            transition={{ delay: 0.4, duration: 0.5 }}
+            className="flex flex-wrap gap-2 mt-6 justify-center group"
           >
             {suggestions.map((suggestion, index) => (
               <motion.div
@@ -324,7 +316,7 @@ export default function ChatBar({
                 animate={{ opacity: 1, y: 0 }}
                 transition={{
                   duration: 0.4,
-                  delay: 0.3 + index * 0.08,
+                  delay: 0.5 + index * 0.08,
                 }}
                 whileHover={{
                   scale: 1.06,
@@ -353,5 +345,6 @@ export default function ChatBar({
         Therefore, beware of the content you send like passwords or secrets.
       </p>
     </motion.div>
+
   );
 }

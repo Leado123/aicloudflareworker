@@ -13,6 +13,12 @@ import ChatMode from "../components/chatMode";
 import CraftingTableMode from "../components/newCraftingTableMode";
 import WritingMode from "../components/writingMode";
 import CalculatorMode from "../components/CalcMode";
+import {
+  deleteConversation,
+  setCurrentConversation,
+  addConversation,
+  updateConversation
+} from "./store";
 
 // Chat Mode Definition
 export const chatMode: ModeDefinition<Conversation> = {
@@ -73,6 +79,23 @@ export const chatMode: ModeDefinition<Conversation> = {
         throw new Error("Handler only available on server side");
       },
     },
+  },
+
+  // Custom hooks for syncing with store system
+  onEntityCreated: (entity: Conversation) => {
+    // Sync with store system
+    addConversation(entity);
+    setCurrentConversation(entity.id);
+  },
+
+  onEntityUpdated: (entity: Conversation) => {
+    // Sync with store system
+    updateConversation(entity.id, entity);
+  },
+
+  onEntityDeleted: (entityId: string) => {
+    // Sync with store system - this will set currentConversationId to null
+    deleteConversation(entityId);
   },
 };
 

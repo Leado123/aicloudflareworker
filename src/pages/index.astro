@@ -26,7 +26,7 @@ import StoreManager from "@/components/StoreManager";
 				<div class="flex-1 flex p-2 pl-0.5 gap-2 flex-col min-w-0 transition-all duration-300 ease-in-out">
 					<TopBar client:load />
 					<StoreManager client:load>
-						<Content client:load />
+						<Content client:only />
 					</StoreManager>
 				</div>
 			</div>
