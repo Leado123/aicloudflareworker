@@ -187,6 +187,7 @@ export default function ChatMode({
           submitMessage={handleSubmit}
           clearMessages={clearMessages}
           setCurrentConversation={setCurrentConversation}
+          appendMessage={append}
           attachedFiles={attachedFiles}
           setAttachedFiles={setAttachedFiles}
           isSearchEnabled={isSearchEnabled}

@@ -4,6 +4,7 @@ import {
   Conversation,
   CraftingBench,
   Document,
+  CitationCollection,
   generateTitleFromContent,
   fileToStoredData,
   storedDataToFile,
@@ -13,6 +14,7 @@ import ChatMode from "../components/chatMode";
 import CraftingTableMode from "../components/newCraftingTableMode";
 import WritingMode from "../components/writingMode";
 import CalculatorMode from "../components/CalcMode";
+import CitationMode from "../components/citationMode";
 import {
   deleteConversation,
   setCurrentConversation,
@@ -281,12 +283,88 @@ export const calculatorMode: ModeDefinition<any> = {
   apiActions: {},
 };
 
+// Citation Mode Definition
+export const citationMode: ModeDefinition<CitationCollection> = {
+  name: "citation",
+  key: "citation",
+  icon: "BookOpen",
+  displayName: "Citation Manager",
+  component: CitationMode,
+  dataType: class CitationCollectionClass {
+    id!: string;
+    title!: string;
+    entries!: any[];
+    lastSearchQuery?: string;
+    tags?: string[];
+    createdAt?: Date;
+    updatedAt?: Date;
+  } as any,
+
+  defaultEntity: () => ({
+    title: "New Citation Collection",
+    entries: [],
+    lastSearchQuery: undefined,
+    tags: [],
+  }),
+
+  serialize: (collection: CitationCollection) => ({
+    id: collection.id,
+    title: collection.title,
+    entries: collection.entries.map(entry => ({
+      ...entry,
+      addedAt: entry.addedAt.toISOString(),
+    })),
+    lastSearchQuery: collection.lastSearchQuery,
+    tags: collection.tags,
+    createdAt: collection.createdAt?.toISOString(),
+    updatedAt: collection.updatedAt?.toISOString(),
+  }),
+
+  deserialize: (data: any): CitationCollection => ({
+    id: data.id,
+    title: data.title,
+    entries: (data.entries || []).map((entry: any) => ({
+      ...entry,
+      addedAt: entry.addedAt ? new Date(entry.addedAt) : new Date(),
+    })),
+    lastSearchQuery: data.lastSearchQuery,
+    tags: data.tags || [],
+    createdAt: data.createdAt ? new Date(data.createdAt) : undefined,
+    updatedAt: data.updatedAt ? new Date(data.updatedAt) : undefined,
+  }),
+
+  isEmpty: (collection: CitationCollection) => !collection || collection.entries.length === 0,
+
+  // Define API actions available for this mode
+  apiActions: {
+    searchCitations: {
+      name: "searchCitations",
+      handler: async () => {
+        throw new Error("Handler only available on server side");
+      },
+    },
+    addCitation: {
+      name: "addCitation",
+      handler: async () => {
+        throw new Error("Handler only available on server side");
+      },
+    },
+    removeCitation: {
+      name: "removeCitation",
+      handler: async () => {
+        throw new Error("Handler only available on server side");
+      },
+    },
+  },
+};
+
 // Export all modes
 export const allModes = {
   chat: chatMode,
   craftingTable: craftingTableMode,
   write: writingMode,
   calculator: calculatorMode,
+  citation: citationMode,
 } as const;
 
 export type ModeKey = keyof typeof allModes;

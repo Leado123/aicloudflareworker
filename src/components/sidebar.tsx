@@ -220,11 +220,21 @@ function SideBar() {
         const mode = allModes[modeKey];
 
         const handleNewEntity = () => {
-            const newEntityId = createEntity({
-                title: mode.defaultEntity().title
-            });
-            setCurrentEntity(newEntityId);
-            switchMode(modeKey);
+            // Only switch mode if we're not already in that mode
+            if (currentMode !== modeKey) {
+                switchMode(modeKey);
+                // Add a small delay to ensure mode switch completes
+                setTimeout(() => {
+                    const newEntityId = createEntity({
+                        title: mode.defaultEntity().title
+                    });
+                }, 50);
+            } else {
+                // If we're already in the correct mode, create entity immediately
+                const newEntityId = createEntity({
+                    title: mode.defaultEntity().title
+                });
+            }
         };
 
         const handleSelectEntity = (entityId: string) => {
@@ -253,8 +263,9 @@ function SideBar() {
                             <motion.div
                                 layout
                                 key={entity.id}
-                                className={`flex items-center gap-3 px-3 py-2 text-sm rounded-md cursor-pointer group hover:bg-gray-100 transition-colors ${currentMode === modeKey && currentEntity === entity.id ? 'bg-gray-200' : ''
-                                    }`}
+                                className={`flex items-center gap-3 px-3 py-2 text-sm rounded-md cursor-pointer group hover:bg-gray-100 transition-colors ${
+                                    currentMode === modeKey && currentEntity === entity.id ? 'bg-gray-200' : ''
+                                }`}
                                 onClick={() => handleSelectEntity(entity.id)}
                             >
                                 {getIcon(icon, 16)}

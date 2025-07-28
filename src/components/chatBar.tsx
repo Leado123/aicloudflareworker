@@ -1,10 +1,47 @@
 import { type Conversation } from "@/util/modeDefinitions";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStore } from "@nanostores/react";
-import { LucideArrowDown, LucideArrowRight, LucidePlus, LucidePaperclip, LucideSearch, LucideCornerDownLeft, LucideUpload, LucideGlobe2, LucideGlobe, LucideCornerUpRight, LucideFile } from "lucide-react";
-import React, { useRef, useState } from "react";
+import { LucideArrowDown, LucideArrowRight, LucidePlus, LucidePaperclip, LucideSearch, LucideCornerDownLeft, LucideUpload, LucideGlobe2, LucideGlobe, LucideCornerUpRight, LucideFile, LucideBookOpen } from "lucide-react";
+import React, { useRef, useState, useMemo } from "react";
+import {
+  RichTextarea,
+  type RichTextareaHandle,
+} from "rich-textarea";
+import { createPortal } from "react-dom";
 import { isAtBottomAtom, scrollToBottomSignal } from "./messages";
 import { Button } from "./ui/button";
+import { useModeSwitcher } from "./ModeProvider";
+import { useDualMode } from "./MainLayout";
+
+// --------------------- Slash command constants ----------------------
+type CommandItem = { label: string; description: string };
+
+const SLASH_REG = /\/([^\s/]*)$/;
+const COMMANDS: CommandItem[] = [
+  { label: "cite", description: "Search academic citations" },
+  { label: "file", description: "Upload files" },
+];
+const MAX_LIST_LENGTH = 5;
+
+// --------------------- Fancy command chip component ----------------------
+interface CommandChipProps {
+  label: string;
+  onDelete: () => void;
+}
+
+function CommandChip({ label, onDelete }: CommandChipProps) {
+  return (
+    <span
+      className="inline-flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-xs font-medium rounded-md cursor-pointer hover:from-red-500 hover:to-red-600 transition-all duration-200 shadow-sm"
+      onClick={onDelete}
+      title="Click to remove"
+    >
+      <span className="text-xs">/</span>
+      {label}
+      <span className="text-xs opacity-70">×</span>
+    </span>
+  );
+}
 
 interface ChatBarProps {
   currentConversation: Conversation | null;
@@ -20,6 +57,8 @@ interface ChatBarProps {
   // Add new props for proper new conversation handling
   clearMessages?: () => void;
   setCurrentConversation?: (id: string | null) => void;
+  // Add append function for direct message sending
+  appendMessage?: (message: { role: "user"; content: string }) => void;
   // Attachment handling props
   attachedFiles: File[];
   setAttachedFiles: React.Dispatch<React.SetStateAction<File[]>>;
@@ -36,6 +75,7 @@ export default function ChatBar({
   handleInputChange,
   clearMessages,
   setCurrentConversation,
+  appendMessage,
   attachedFiles,
   setAttachedFiles,
   isSearchEnabled,
@@ -43,6 +83,163 @@ export default function ChatBar({
 }: ChatBarProps) {
   const $isAtBottom = useStore(isAtBottomAtom);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { switchMode } = useModeSwitcher();
+  const { openDualModeWith } = useDualMode();
+
+  /* ---------------- RichTextarea slash command logic ---------------- */
+  const richRef = useRef<RichTextareaHandle>(null);
+  const [popupPos, setPopupPos] = useState<{
+    top: number;
+    left: number;
+    caret: number;
+  } | null>(null);
+  const [slashIndex, setSlashIndex] = useState(0);
+
+  const currentWord = popupPos ? input.slice(0, popupPos.caret).match(SLASH_REG)?.[1] ?? "" : "";
+
+  const filteredCommands = useMemo(
+    () =>
+      COMMANDS.filter((c) =>
+        c.label.toLowerCase().startsWith(currentWord.toLowerCase())
+      ).slice(0, MAX_LIST_LENGTH),
+    [currentWord]
+  );
+
+  const completeCommand = (i: number) => {
+    if (!richRef.current || !popupPos) return;
+    const selected = filteredCommands[i];
+    if (!selected) return;
+    
+    // Handle special commands
+    if (selected.label === "file") {
+      handleFileAttach();
+      setPopupPos(null);
+      setSlashIndex(0);
+      return;
+    }
+    
+    // Insert a short marker that matches chip width
+    const chipMarker = `[${selected.label}]`;
+    richRef.current.setRangeText(
+      `${chipMarker} `,
+      popupPos.caret - currentWord.length - 1,
+      popupPos.caret,
+      "end"
+    );
+    
+    // Sync to parent state
+    const newValue = richRef.current.value;
+    handleInputChange({
+      target: { value: newValue },
+    } as any);
+
+    setPopupPos(null);
+    setSlashIndex(0);
+  };
+
+  // Extract chips from input and clean the textarea value
+  const chips = useMemo(() => {
+    const matches = input.match(/\[([^\]]+)\]/g) || [];
+    return matches.map(match => match.match(/\[([^\]]+)\]/)?.[1]).filter(Boolean) as string[];
+  }, [input]);
+
+  const cleanInput = useMemo(() => {
+    const cleaned = input.replace(/\[([^\]]+)\]/g, '');
+    // Remove leading space that might be left after chip removal
+    return cleaned.replace(/^\s+/, '');
+  }, [input]);
+
+  const handleChipDelete = (label: string) => {
+    if (!label) return;
+    const newValue = input.replace(`[${label}]`, '');
+    handleInputChange({
+      target: { value: newValue },
+    } as any);
+  };
+
+  const handleBackspaceOnEmpty = () => {
+    if (cleanInput === '' && chips.length > 0) {
+      const lastChip = chips[chips.length - 1];
+      if (lastChip) {
+        handleChipDelete(lastChip);
+      }
+    }
+  };
+
+  const handleRichKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Handle backspace on empty textarea to remove last chip
+    if (e.key === "Backspace" && cleanInput === '' && chips.length > 0) {
+      e.preventDefault();
+      handleBackspaceOnEmpty();
+      return;
+    }
+
+    // Handle popup navigation
+    if (popupPos && filteredCommands.length > 0) {
+      switch (e.code) {
+        case "ArrowUp":
+          e.preventDefault();
+          setSlashIndex((prev) => (prev <= 0 ? filteredCommands.length - 1 : prev - 1));
+          break;
+        case "ArrowDown":
+          e.preventDefault();
+          setSlashIndex((prev) => (prev >= filteredCommands.length - 1 ? 0 : prev + 1));
+          break;
+        case "Enter":
+          e.preventDefault();
+          completeCommand(slashIndex);
+          break;
+        case "Escape":
+          e.preventDefault();
+          setPopupPos(null);
+          setSlashIndex(0);
+          break;
+        default:
+          break;
+      }
+      return;
+    }
+
+    // Handle enter-to-send when popup not visible
+    if (e.key === "Enter" && !e.shiftKey && !popupPos) {
+      e.preventDefault();
+      (e.target as HTMLTextAreaElement).form?.requestSubmit();
+    }
+  };
+
+  // Custom input change handler that preserves chips
+  const handleInputChangeWithChips = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newCleanValue = e.target.value;
+    
+    // If we have existing chips, preserve them by reconstructing the full value
+    if (chips.length > 0) {
+      const chipPrefix = chips.map(chip => `[${chip}]`).join(' ');
+      const fullValue = chipPrefix + (newCleanValue ? ' ' + newCleanValue : '');
+      
+      // Create a synthetic event with the full value including chips
+      const syntheticEvent = {
+        ...e,
+        target: { ...e.target, value: fullValue }
+      };
+      handleInputChange(syntheticEvent as any);
+    } else {
+      // No chips, just pass through the change normally
+      handleInputChange(e as any);
+    }
+  };
+
+  const handleRichSelectionChange = (r: any) => {
+    if (r.focused && SLASH_REG.test(input.slice(0, r.selectionStart))) {
+      setPopupPos({ top: r.top + r.height, left: r.left, caret: r.selectionStart });
+      setSlashIndex(0);
+    } else {
+      setPopupPos(null);
+      setSlashIndex(0);
+    }
+  };
+
+  // Check if user is typing something that suggests they want citations
+  const showCitationHint = input.toLowerCase().startsWith("cite") && input.length >= 4;
 
   const handleNewConversation = () => {
     // Clear the current messages first to reset the chat state
@@ -61,8 +258,24 @@ export default function ChatBar({
 
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (input.trim()) {
-      submitMessage(e);
+    // Clean the input by removing chip brackets and converting to clean text
+    const cleanedInput = input.replace(/\[([^\]]+)\]/g, '$1').trim();
+    if (cleanedInput) {
+      if (appendMessage) {
+        // Use append for direct message sending with clean content
+        appendMessage({ role: "user", content: cleanedInput });
+        // Clear the input
+        handleInputChange({
+          target: { value: "" }
+        } as React.ChangeEvent<HTMLTextAreaElement>);
+      } else {
+        // Fallback to form submission
+        const changeEvent = {
+          target: { value: cleanedInput }
+        } as React.ChangeEvent<HTMLTextAreaElement>;
+        handleInputChange(changeEvent);
+        submitMessage(e);
+      }
     }
   };
 
@@ -157,10 +370,45 @@ export default function ChatBar({
       )}
 
       <div className="w-full max-w-4xl">
+        {/* Citation hint */}
+        <AnimatePresence>
+          {showCitationHint && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              className="absolute -top-24 left-4 right-4 z-10"
+            >
+              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 shadow-lg">
+                <div className="flex items-start gap-3">
+                  <div className="w-6 h-6 bg-emerald-600 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <LucideBookOpen className="w-3 h-3 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <span className="font-medium text-emerald-800">Citation Mode Detected</span>
+                    <p className="text-sm text-emerald-700 mt-1">
+                      I'll search for academic sources and citations for your query.
+                      Results will also be available in Citation Mode for detailed exploration.
+                    </p>
+                    <button
+                      onClick={() => {
+                        openDualModeWith('citation');
+                      }}
+                      className="mt-2 text-xs bg-emerald-600 text-white px-2 py-1 rounded hover:bg-emerald-700 transition-colors"
+                    >
+                      Open Citation Manager
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Main input form */}
         <form onSubmit={handleFormSubmit} className="w-full">
           <div className={`${input.trim()
-            ? "bg-gradient-to-b from-blue-50 border-blue-400 border-2  shadow-lg"
+            ? "bg-gradient-to-b from-blue-50 to-white border-blue-400 border-2  shadow-lg"
             : "bg-white border border-gray-200"} 
           rounded-4xl shadow-sm transition-all hover:shadow-md duration-200 p-2`}>
             {/* Attached files display box */}
@@ -204,37 +452,102 @@ export default function ChatBar({
             {/* Input section */}
             <div className="flex flex-col gap-2">
               {/* Multiline textarea */}
-              <textarea
-                className="w-full resize-none outline-none font-medium drop-shadow-lg text-base p-2 focus:ring-0"
-                placeholder="Ask anything..."
-                value={input}
-                autoFocus
-                onChange={handleInputChange}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    (e.target as HTMLTextAreaElement).form?.requestSubmit();
-                  }
-                }}
-                rows={1}
-                style={{
-                  maxHeight: "120px", // 3 * ~40px line-height
-                  overflowY: "auto",
-                }}
-                onInput={e => {
-                  const textarea = e.currentTarget;
-                  // Calculate the base scrollHeight for a single row if not already set
-                  if (!(textarea as any)._baseScrollHeight) {
-                    (textarea as any)._baseScrollHeight = textarea.scrollHeight;
-                  }
-                  textarea.rows = 1; // Always reset to 1 before measuring
-                  const lineHeight = parseInt(window.getComputedStyle(textarea).lineHeight || "20", 10);
-                  const maxRows = 3;
-                  const baseScrollHeight = (textarea as any)._baseScrollHeight || 0;
-                  const lines = Math.floor((textarea.scrollHeight - baseScrollHeight) / lineHeight) + 1;
-                  textarea.rows = Math.max(1, Math.min(maxRows, lines));
-                }}
-              />
+              <div className="flex items-center w-full">
+                  {/* Chips container - only show if chips exist */}
+                  {chips.length > 0 && (
+                    <div className="flex flex-wrap gap-1 flex-shrink-0 mr-2">
+                      {chips.map((chip, index) => (
+                        <div
+                          key={index}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-b from-blue-50 to-blue-100 border border-blue-200 text-blue-700 text-xs font-medium rounded-full cursor-pointer hover:from-red-50 hover:to-red-100 hover:border-red-200 hover:text-red-700 transition-all duration-200 shadow-sm hover:shadow-md"
+                          onClick={() => handleChipDelete(chip)}
+                          title="Click to remove"
+                        >
+                          <span className="text-xs font-semibold">/</span>
+                          <span className="text-xs">{chip}</span>
+                          <span className="text-xs opacity-60 hover:opacity-100">×</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                
+                {/* Textarea */}
+                <RichTextarea
+                  ref={richRef}
+                  className="resize-none outline-none font-medium drop-shadow-lg text-base p-2 focus:ring-0 flex-1 w-full"
+                  placeholder="Ask anything..."
+                  value={cleanInput}
+                  autoFocus
+                  onChange={handleInputChangeWithChips}
+                  onKeyDown={handleRichKeyDown}
+                  onSelectionChange={handleRichSelectionChange}
+                  rows={1}
+                  style={{
+                    minHeight: '2.5rem',
+                    maxHeight: '120px',
+                    lineHeight: '1.5rem',
+                    overflowY: 'auto',
+                    width: '100%',
+                    display: 'block'
+                  }}
+                />
+              </div>
+              {/* Command suggestion overlay */}
+              {popupPos && filteredCommands.length > 0 &&
+                createPortal(
+                  <motion.div
+                    initial={{ 
+                      opacity: 0, 
+                      scaleX: 0,
+                      scaleY: 0,
+                      transformOrigin: "left bottom"
+                    }}
+                    animate={{ 
+                      opacity: 1, 
+                      scaleX: 1,
+                      scaleY: 1
+                    }}
+                    exit={{ 
+                      opacity: 0, 
+                      scaleX: 0,
+                      scaleY: 0
+                    }}
+                    transition={{ 
+                      type: "spring",
+                      stiffness: 400,
+                      damping: 30,
+                      mass: 0.8
+                    }}
+                    className="absolute rounded-bl-md rounded-2xl z-50 bg-white border border-gray-200 shadow-lg w-48 text-sm overflow-hidden"
+                    style={{ 
+                      bottom: window.innerHeight - popupPos.top + 22.5, 
+                      left: popupPos.left,
+                    }}
+                  >
+                    {filteredCommands.map((cmd, i) => (
+                      <motion.div
+                        key={cmd.label}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ 
+                          delay: 0.1 + i * 0.08,
+                          duration: 0.2,
+                          ease: "easeOut"
+                        }}
+                        className={`px-3 py-1.5 cursor-pointer flex items-center gap-2 hover:bg-gray-50 transition-all duration-150 ${i === slashIndex ? 'bg-gray-100' : ''}`}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          completeCommand(i);
+                        }}
+                      >
+                        <span className="text-xs text-gray-400">/</span>
+                        <span className="font-medium text-gray-900">{cmd.label}</span>
+                        <span className="text-xs text-gray-500 ml-auto">{cmd.description}</span>
+                      </motion.div>
+                    ))}
+                  </motion.div>,
+                  document.body
+                )}
               {/* Button row */}
               <div className="flex items-center justify-between">
                 {/* Left side icons */}
@@ -248,7 +561,7 @@ export default function ChatBar({
                     type="button"
                     onClick={handleFileAttach}
                     title="Attach file"
-                    className="transition-colors duration-200 ease-in-out"
+                    className="transition-colors"
                   >
                     <LucideUpload className="w-4 h-4" />
                     <span>Upload</span>
@@ -265,6 +578,22 @@ export default function ChatBar({
                   >
                     <LucideGlobe className="w-4 h-4" />
                     <span>Search the Web</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // Open citation mode in dual mode if not already in citation mode
+                      if (window.location.hash !== '#citation') {
+                        openDualModeWith('citation');
+                      } else {
+                        switchMode('citation');
+                      }
+                    }}
+                    title="Open Citation Manager"
+                    className="transition-colors"
+                  >
+                    <LucideBookOpen className="w-4 h-4" />
+                    <span>Citations</span>
                   </button>
                 </div>
                 {/* Right side buttons */}

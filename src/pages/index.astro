@@ -1,10 +1,6 @@
 ---
-import TopBar from "@/components/topbar";
 import "../styles/global.css";
-import Sidebar from "@/components/sidebar"
-import Content from "@/components/content";
-import { conversations } from "@/util/store";
-import StoreManager from "@/components/StoreManager";
+import MainLayout from "@/components/MainLayout";
 ---
 
 <html lang="en">
@@ -14,21 +10,11 @@ import StoreManager from "@/components/StoreManager";
 
 		<link rel="stylesheet" href="https://use.typekit.net/jbl5rvj.css">
 
-
 		<meta name="viewport" content="width=device-width" />
 		<meta name="generator" content={Astro.generator} />
 		<title>SS Studio</title>
 	</head>
 	<body class="w-full h-full">
-			<div class="w-full h-full gap-2 flex">
-				
-				<Sidebar client:load />
-				<div class="flex-1 flex p-2 pl-0.5 gap-2 flex-col min-w-0 transition-all duration-300 ease-in-out">
-					<TopBar client:load />
-					<StoreManager client:load>
-						<Content client:only />
-					</StoreManager>
-				</div>
-			</div>
+		<MainLayout client:load />
 	</body>
 </html>

@@ -117,6 +117,134 @@ const searchTool = tool({
   },
 });
 
+const citationSearchTool = tool({
+  description:
+    "Search for academic papers, books, and citations using the Bibify service. Use this when the user asks for citations, references, or academic sources. Perfect for when users start their message with 'cite' or ask for sources on a specific topic. Supports multi-term searches - you can search for multiple items at once by separating them with 'and', commas, or semicolons (e.g., 'DSM 5 tr and Hamlet by Shakespeare').",
+  parameters: z.object({
+    query: z.string().describe("The search query for academic sources. Can include multiple terms separated by 'and', commas, or semicolons"),
+    type: z.string().optional().describe("Type of content (book, article, thesis, etc.)"),
+    year_start: z.number().optional().describe("Start year for filtering results"),
+    year_end: z.number().optional().describe("End year for filtering results"),
+    language: z.string().optional().describe("Language preference"),
+  }),
+  execute: async ({ query, type, year_start, year_end, language }) => {
+    try {
+      console.log("Executing citation search with query:", query);
+      
+      // Use the correct base URL for the API request
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:4321';
+
+      // -----------------------------------------------------------------------------------
+      // Define the expected shape of the Bibify citation search response so we can type it
+      // -----------------------------------------------------------------------------------
+      interface BibifyCitationSearchResponse {
+        success: boolean;
+        type: string; // e.g. "search" | "detailed"
+        data: any[];
+        count: number;
+        pagination?: Record<string, unknown>;
+        searchTerms?: string[];
+        message?: string;
+        error?: string;
+        // Optional fields returned for convenience on the top-level object
+        title?: string;
+        authors?: string | string[];
+        date?: string;
+        publisher?: string;
+        journal?: string;
+        doi?: string;
+      }
+      
+      const response = await fetch(`${baseUrl}/api/citation`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          searchQuery: query,
+          type: type,
+          year_start: year_start,
+          year_end: year_end,
+          language: language,
+          page: 1,
+          per_page: 5, // Limit to 5 results for chat display
+        }),
+      });
+
+      const result = (await response.json()) as BibifyCitationSearchResponse;
+      
+      if (result.success && result.type === 'search') {
+        const citations = result.data.map((item: any, index: number) => ({
+          id: index + 1,
+          title: item.title || 'Untitled',
+          authors: Array.isArray(item.authors) ? item.authors.join(', ') : (item.authors || 'Unknown Author'),
+          year: item.year,
+          type: item.type,
+          doi: item.doi,
+          isbn: item.isbn,
+          journal: item.journal,
+          publisher: item.publisher,
+          abstract: item.abstract,
+          bibify_id: item.id, // Store the bibify ID for later detailed retrieval
+          // Format for AI to present
+          formatted: `${index + 1}. **${item.title || 'Untitled'}** by ${
+            Array.isArray(item.authors) ? item.authors.join(', ') : (item.authors || 'Unknown Author')
+          }${item.year ? ` (${item.year})` : ''}${item.type ? ` [${item.type}]` : ''}${
+            item.doi ? ` DOI: ${item.doi}` : ''
+          }${item.isbn ? ` ISBN: ${item.isbn}` : ''}`
+        }));
+
+        return {
+          success: true,
+          query,
+          citations,
+          count: citations.length,
+          total: result.count,
+          pagination: result.pagination,
+          searchTerms: result.searchTerms || [query],
+          searchMessage: result.message || "",
+          searchInfo: {
+            type,
+            year_start,
+            year_end,
+            language
+          },
+          instructions: result.searchTerms && result.searchTerms.length > 1 
+            ? `Found results for multiple search terms: ${result.searchTerms.join(', ')}. Present these citations to the user in a well-formatted, academic style. Mention that detailed information and additional formats (APA, MLA, BibTeX, etc.) are available in the Citation Mode.`
+            : "Present these citations to the user in a well-formatted, academic style. Mention that detailed information and additional formats (APA, MLA, BibTeX, etc.) are available in the Citation Mode. Users can access Citation Mode for advanced search and collection features.",
+          // Add citation data to response
+          citation: {
+            title: result.title,
+            authors: result.authors,
+            year: result.date ? parseInt(result.date.split('-')[0]) : undefined,
+            publisher: result.publisher,
+            journal: result.journal,
+            doi: result.doi
+          }
+        };
+      } else {
+        return {
+          success: false,
+          error: result.error || "Citation search failed",
+          query,
+          citations: [],
+          count: 0,
+        };
+      }
+    } catch (error) {
+      console.error("Citation search error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown citation search error",
+        query,
+        citations: [],
+        count: 0,
+        details: "Failed to connect to citation service. This might be due to service unavailability.",
+      };
+    }
+  },
+});
+
 const apiKeyManager = APIKeyManager.getInstance();
 
 export function errorHandler(error: unknown) {
@@ -159,16 +287,25 @@ function cleanMessages(rawMessages: any): CoreMessage[] {
     return [];
   }
   
-  // Clean each message to proper CoreMessage format
-  return messagesToProcess.map((msg: any) => {
-    // Remove extra properties and keep only CoreMessage structure
-    const cleanMsg: CoreMessage = {
-      role: msg.role,
-      content: msg.content
-    };
-    
-    return cleanMsg;
-  });
+  // Clean each message to proper CoreMessage format and filter out empty messages
+  return messagesToProcess
+    .map((msg: any) => {
+      // Remove extra properties and keep only CoreMessage structure
+      const cleanMsg: CoreMessage = {
+        role: msg.role,
+        content: msg.content
+      };
+      
+      return cleanMsg;
+    })
+    .filter((msg: CoreMessage) => {
+      // Filter out messages with empty, null, or undefined content
+      // This prevents "contents.parts must not be empty" API errors
+      return msg.content && 
+             (typeof msg.content === 'string' ? msg.content.trim() !== '' : true) &&
+             msg.role && 
+             (msg.role === 'user' || msg.role === 'assistant' || msg.role === 'system');
+    });
 }
 
 export async function POST({ request }: APIContext) {
@@ -303,6 +440,18 @@ export async function POST({ request }: APIContext) {
         // Enhanced system prompt for attachment and search handling
         let systemPrompt = generalChatPrompt.prompt;
         
+        // Check if user is asking for citations
+        const lastUserMessage = enhancedMessages[enhancedMessages.length - 1];
+        const lastContent = typeof lastUserMessage?.content === "string"
+          ? lastUserMessage.content.replace(/\*\*/g, "").toLowerCase()
+          : "";
+        const isCitationRequest = lastUserMessage &&
+          lastUserMessage.role === "user" &&
+          (lastContent.startsWith("cite") ||
+           lastContent.includes("citation") ||
+           lastContent.includes("reference") ||
+           lastContent.includes("source"));
+        
         if (attachments.length > 0) {
           systemPrompt += `\n\nNote: The user has attached ${attachments.length} file(s). Please acknowledge and analyze any attached files appropriately based on their type and content.`;
         }
@@ -322,6 +471,20 @@ The user has enabled web search. You MUST follow these rules strictly:
 REMEMBER: When search is enabled, your training data may be outdated. The search results are the authoritative source of truth.`;
         }
 
+        if (isCitationRequest) {
+          systemPrompt += `\n\nCITATION MODE INSTRUCTIONS:
+The user is requesting citations or academic sources. You MUST:
+
+1. MANDATORY: Use the citationSearch tool to find relevant academic sources
+2. Present the citations in a well-formatted, academic style
+3. Include author information, titles, and source details
+4. Mention that detailed information is available in the Citation Mode
+5. Suggest that the user can access the Citation Mode for more advanced search and collection features
+6. After providing citations, use the generateThreePrompts tool to suggest follow-up questions
+
+Remember: Always provide proper academic citations when requested.`;
+        }
+
         // Determine which tools to include and tool choice
         const tools: any = { generateThreePrompts: threePrompts };
         let toolChoice: any = "auto";
@@ -330,6 +493,17 @@ REMEMBER: When search is enabled, your training data may be outdated. The search
           tools.searchWeb = searchTool;
           // Force search tool to be used first when search is enabled
           toolChoice = { type: 'tool', toolName: 'searchWeb' };
+        }
+
+        if (isCitationRequest) {
+          tools.citationSearch = citationSearchTool;
+          // Force citation search tool when citation is requested
+          toolChoice = { type: 'tool', toolName: 'citationSearch' };
+        }
+
+        // If both search and citation are requested, let AI choose
+        if (enableSearch && isCitationRequest) {
+          toolChoice = "auto";
         }
 
         const result = await streamText({

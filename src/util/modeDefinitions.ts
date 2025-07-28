@@ -17,6 +17,42 @@ export interface Conversation extends BaseEntity {
     messages: CoreMessage[];
 }
 
+export interface CitationEntry {
+    id: string;
+    title: string;
+    authors: string[];
+    year?: number;
+    type?: string; // 'book', 'article', 'thesis', etc.
+    doi?: string;
+    isbn?: string;
+    url?: string;
+    abstract?: string;
+    journal?: string;
+    volume?: string;
+    issue?: string;
+    pages?: string;
+    publisher?: string;
+    language?: string;
+    searchQuery?: string;
+    addedAt: Date;
+    // Citation formats
+    apa_citation?: string;
+    mla_citation?: string;
+    chicago_citation?: string;
+    bibtex?: string;
+    // Additional metadata
+    keywords?: string[];
+    references?: string[];
+    full_text_url?: string;
+    pdf_url?: string;
+}
+
+export interface CitationCollection extends BaseEntity {
+    entries: CitationEntry[];
+    lastSearchQuery?: string;
+    tags?: string[];
+}
+
 export interface StoredFileData {
     name: string;
     size: number;

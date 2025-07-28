@@ -1,4 +1,4 @@
-import { LucideArrowUpRight, LucideHandHelping, LucideMessageCircle, LucidePencilRuler, LucideSparkles, LucideLoader2, LucideCalculator, LucideMenu, LucideLanguages } from "lucide-react";
+import { LucideArrowUpRight, LucideHandHelping, LucideMessageCircle, LucidePencilRuler, LucideSparkles, LucideLoader2, LucideCalculator, LucideMenu, LucideLanguages, LucideBookOpen, LucideSplitSquareHorizontal } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
 import { useModeSwitcher } from "./ModeProvider";
 import { allModes } from "@/util/modes";
@@ -8,9 +8,11 @@ import { Label } from "./ui/label";
 import { Input } from "./ui/input";
 import { useState, useEffect } from "react";
 import { toggleSidebarFromTopbar } from "./sidebar";
+import { useDualMode } from "./MainLayout";
 
 export default function TopBar() {
     const { currentMode, switchMode } = useModeSwitcher();
+    const { isDualMode, setIsDualMode } = useDualMode();
     const [apiKey, setApiKey] = useState("");
     const [selectedService, setSelectedService] = useState<"gemini" | "cerebras">("gemini");
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -114,10 +116,24 @@ export default function TopBar() {
                         <TabsTrigger value="calculator">
                             <LucideCalculator /> {allModes.calculator.displayName}
                         </TabsTrigger>
+                        <TabsTrigger value="citation">
+                            <LucideBookOpen /> {allModes.citation.displayName}
+                        </TabsTrigger>
 
                     </TabsList>
                 </Tabs>
                 <div className="w-full flex justify-end-safe pr-2 gap-2">
+                    {/* Dual Mode Toggle Button */}
+                    <Button
+                        variant={isDualMode ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setIsDualMode(!isDualMode)}
+                        className="flex items-center gap-2"
+                    >
+                        <LucideSplitSquareHorizontal className="w-4 h-4" />
+                        {isDualMode ? "Single Mode" : "Dual Mode"}
+                    </Button>
+                    
                     {shouldShowApiKeyButton && (
 
                         <>
