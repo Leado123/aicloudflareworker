@@ -5,6 +5,7 @@ import { createCerebras } from '@ai-sdk/cerebras';
 import pkg from '@prisma/client';
 const { PrismaClient } = pkg;
 import APIKeyManager from "@/util/apiKeyManager";
+import { prisma } from "@/lib/prisma";
 
 export const prerender = false;
 
@@ -13,7 +14,6 @@ export interface APIKeySubmission {
     service: "gemini" | "cerebras";
 }
 
-const prisma = new PrismaClient();
 const apiKeyManager = APIKeyManager.getInstance();
 
 export async function POST(request: APIContext) {
@@ -31,7 +31,7 @@ export async function POST(request: APIContext) {
         if (service === "gemini") {
             try {
                 // Use the API key manager's add method which includes validation
-                const success = await apiKeyManager.addKey(apiKey);
+                const success = await apiKeyManager.addKey(apiKey, "GEMINI");
                 
                 if (!success) {
                     return new Response(JSON.stringify({ error: "Invalid Gemini API key" }), {

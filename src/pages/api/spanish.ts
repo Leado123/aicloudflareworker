@@ -4,7 +4,7 @@ import { generateObject } from "ai";
 import { z } from "zod";
 import Langfuse from "langfuse";
 import APIKeyManager from "@/util/apiKeyManager";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 
 // This route must be rendered on the server (SSR) to handle dynamic requests.
 export const prerender = false;
@@ -18,9 +18,6 @@ const langfuse = new Langfuse({
 
 // Initialize API key manager
 const apiKeyManager = APIKeyManager.getInstance();
-
-// Initialize Prisma client
-const prisma = new PrismaClient();
 
 export enum ConjugationTense {
   Preterite = "Preterite",

@@ -1,10 +1,7 @@
-import pkg from "@prisma/client";
-const { PrismaClient } = pkg;
+import { prisma } from "@/lib/prisma";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { streamText } from "ai";
 import { createCerebras } from "@ai-sdk/cerebras";
-
-const prisma = new PrismaClient();
 
 interface APIKeyInfo {
   id: string;
