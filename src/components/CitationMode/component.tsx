@@ -1,13 +1,31 @@
 import { ModeComponentProps, type CitationCollection, CitationEntry } from "@/util/modeDefinitions";
-import { useState, useRef, useEffect } from "react";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
-import { Badge } from "./ui/badge";
+import React, { useState, useEffect, useRef } from 'react';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { Badge } from '../ui/badge';
 import { LucideSearch, LucideBook, LucideDownload, LucideTrash, LucideExternalLink, LucideLoader2, LucideBookOpen, LucideCalendar, LucideUser, LucideFileText, LucideGraduationCap } from "lucide-react";
-import { ScrollArea } from "./ui/scroll-area";
+import { ScrollArea } from '../ui/scroll-area';
 import { motion, AnimatePresence } from "framer-motion";
 import type { BibifySearchResult, BibifyDetailResponse } from "@/util/bibifyClient";
+
+// Lightweight formatter and style type for quick copy
+type QuickCitationStyle = "apa" | "mla" | "chicago";
+const quickFormat = (c: { title?: string; authors?: string | string[]; year?: number | string; publisher?: string }, style: QuickCitationStyle) => {
+  const authors = Array.isArray(c.authors) ? c.authors.join(", ") : (c.authors || "");
+  const year = c.year ?? "";
+  const title = c.title ?? "";
+  const publisher = c.publisher ?? "";
+  switch (style) {
+    case "mla":
+      return `${authors}. ${title}. ${publisher}${year ? ", " + year + "." : "."}`;
+    case "chicago":
+      return `${authors}. ${title}. ${publisher}${year ? ", " + year + "." : "."}`;
+    case "apa":
+    default:
+      return `${authors}${year ? ` (${year}).` : "."} ${title}. ${publisher}.`;
+  }
+};
 
 interface CitationModeProps extends ModeComponentProps<CitationCollection> {
   // Add any additional props specific to citation mode
@@ -173,7 +191,7 @@ export default function CitationMode({
   };
 
   return (
-    <div className="w-full h-full flex flex-col">
+    <div className="w-full h-full flex flex-col min-w-0 overflow-hidden">
       {/* Header with search */}
       <div className="p-4 border-b bg-white">
         <div className="flex gap-2 mb-4">
@@ -229,9 +247,9 @@ export default function CitationMode({
       </div>
 
       {/* Main content area */}
-      <div className="flex-1 flex h-0"> {/* Add h-0 to enable flex sizing */}
+      <div className="flex-1 flex h-0 min-w-0"> {/* Add h-0 to enable flex sizing */}
         {/* Search results */}
-        <div className="flex-1 p-4 flex flex-col h-full">
+        <div className="flex-1 p-4 flex flex-col h-full min-w-0">
           <div className="flex flex-col gap-2 mb-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold">Search Results</h3>
@@ -292,7 +310,7 @@ export default function CitationMode({
                         {/* Content */}
                         <div className="flex-1">
                           <div className="flex items-start justify-between">
-                            <div className="flex-1">
+                            <div className="flex-1 min-w-0">
                               <h3 className="font-medium text-gray-900 mb-2">
                                 {result.title}
                               </h3>
@@ -336,6 +354,26 @@ export default function CitationMode({
                                     {result.pages} pages
                                   </Badge>
                                 )}
+                              </div>
+
+                              {/* Quick style copy actions */}
+                              <div className="flex items-center gap-2 text-xs">
+                                {(["apa", "mla", "chicago"] as QuickCitationStyle[]).map((style) => (
+                                  <Button
+                                    key={style}
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-xs"
+                                    onClick={() => navigator.clipboard.writeText(quickFormat({
+                                      title: result.title,
+                                      authors: result.authors as any,
+                                      year: result.date?.split('-')[0],
+                                      publisher: result.publisher,
+                                    }, style))}
+                                  >
+                                    Copy {style.toUpperCase()}
+                                  </Button>
+                                ))}
                               </div>
                             </div>
                             
@@ -431,6 +469,26 @@ export default function CitationMode({
                             </Badge>
                           )}
                         </div>
+
+                        {/* Quick copy for saved entries */}
+                        <div className="flex items-center gap-2 mt-2">
+                          {(["apa", "mla", "chicago"] as QuickCitationStyle[]).map((style) => (
+                            <Button
+                              key={style}
+                              size="sm"
+                              variant="outline"
+                              className="text-xs"
+                              onClick={() => navigator.clipboard.writeText(quickFormat({
+                                title: entry.title,
+                                authors: entry.authors,
+                                year: entry.year,
+                                publisher: (entry as any).publisher,
+                              }, style))}
+                            >
+                              Copy {style.toUpperCase()}
+                            </Button>
+                          ))}
+                        </div>
                       </div>
                       <Button
                         size="sm"
@@ -486,14 +544,17 @@ export default function CitationMode({
                   </div>
                 )}
                 
-                {/* Citation formats */}
+                {/* Citation formats with copy buttons */}
                 {(selectedEntry.apa_citation || selectedEntry.mla_citation || selectedEntry.bibtex) && (
                   <div className="mb-4">
                     <h4 className="font-medium mb-2">Citations</h4>
                     <div className="space-y-3">
                       {selectedEntry.apa_citation && (
                         <div>
-                          <h5 className="text-sm font-medium">APA</h5>
+                          <div className="flex items-center justify-between">
+                            <h5 className="text-sm font-medium">APA</h5>
+                            <Button size="sm" variant="outline" className="text-xs" onClick={() => navigator.clipboard.writeText(selectedEntry.apa_citation!)}>Copy</Button>
+                          </div>
                           <code className="text-xs bg-gray-100 p-2 rounded block">
                             {selectedEntry.apa_citation}
                           </code>
@@ -501,7 +562,10 @@ export default function CitationMode({
                       )}
                       {selectedEntry.mla_citation && (
                         <div>
-                          <h5 className="text-sm font-medium">MLA</h5>
+                          <div className="flex items-center justify-between">
+                            <h5 className="text-sm font-medium">MLA</h5>
+                            <Button size="sm" variant="outline" className="text-xs" onClick={() => navigator.clipboard.writeText(selectedEntry.mla_citation!)}>Copy</Button>
+                          </div>
                           <code className="text-xs bg-gray-100 p-2 rounded block">
                             {selectedEntry.mla_citation}
                           </code>
@@ -509,7 +573,10 @@ export default function CitationMode({
                       )}
                       {selectedEntry.bibtex && (
                         <div>
-                          <h5 className="text-sm font-medium">BibTeX</h5>
+                          <div className="flex items-center justify-between">
+                            <h5 className="text-sm font-medium">BibTeX</h5>
+                            <Button size="sm" variant="outline" className="text-xs" onClick={() => navigator.clipboard.writeText(selectedEntry.bibtex!)}>Copy</Button>
+                          </div>
                           <code className="text-xs bg-gray-100 p-2 rounded block whitespace-pre">
                             {selectedEntry.bibtex}
                           </code>

@@ -1,18 +1,18 @@
 import { LucideArrowUpRight, LucideHandHelping, LucideMessageCircle, LucidePencilRuler, LucideSparkles, LucideLoader2, LucideCalculator, LucideMenu, LucideLanguages, LucideBookOpen, LucideSplitSquareHorizontal } from "lucide-react";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
-import { useModeSwitcher } from "./ModeProvider";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "../ui/tabs";
+import { useModeSwitcher } from "../ModeProvider/component";
 import { allModes } from "@/util/modes";
-import { Button } from "./ui/button";
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
-import { Label } from "./ui/label";
-import { Input } from "./ui/input";
+import { Button } from "../ui/button";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "../ui/dialog";
+import { Label } from "../ui/label";
+import { Input } from "../ui/input";
 import { useState, useEffect } from "react";
-import { toggleSidebarFromTopbar } from "./sidebar";
-import { useDualMode } from "./MainLayout";
+import { toggleSidebarFromTopbar } from "../Sidebar/component";
+import { useDualMode } from "../MainLayout";
 
 export default function TopBar() {
     const { currentMode, switchMode } = useModeSwitcher();
-    const { isDualMode, setIsDualMode } = useDualMode();
+    const { isDualMode, setIsDualMode, desiredRightMode, setDesiredRightMode } = useDualMode();
     const [apiKey, setApiKey] = useState("");
     const [selectedService, setSelectedService] = useState<"gemini" | "cerebras">("gemini");
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -127,7 +127,13 @@ export default function TopBar() {
                     <Button
                         variant={isDualMode ? "default" : "outline"}
                         size="sm"
-                        onClick={() => setIsDualMode(!isDualMode)}
+                        onClick={() => {
+                            // When turning on dual mode, ensure a right panel is specified
+                            if (!isDualMode && !desiredRightMode) {
+                                setDesiredRightMode('write' as any);
+                            }
+                            setIsDualMode(!isDualMode);
+                        }}
                         className="flex items-center gap-2"
                     >
                         <LucideSplitSquareHorizontal className="w-4 h-4" />

@@ -1,7 +1,9 @@
 // Universal Mode Component - Standardized wrapper for all mode components
+import { BaseEntity, ModeComponentProps } from '@/util/modeDefinitions';
 import React from 'react';
-import { useMode } from './ModeProvider';
-import { BaseEntity, ModeComponentProps } from '../util/modeDefinitions';
+import { useMode } from '../ModeProvider/component';
+
+
 
 // Props for the UniversalModeComponent
 interface UniversalModeComponentProps<T extends BaseEntity> {

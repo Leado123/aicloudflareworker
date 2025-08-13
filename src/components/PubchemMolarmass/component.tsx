@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
 import 'katex/dist/katex.min.css';
-import DefaultMarkdown from './markdown';
+import DefaultMarkdown from '../Markdown/component';
 
 
 interface ElementMolarMassProps {

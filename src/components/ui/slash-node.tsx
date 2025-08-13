@@ -31,16 +31,8 @@ import {
   insertBlock,
   insertInlineElement,
 } from "@/components/editor/transforms";
+import { Combobox, ComboboxItem } from "@ariakit/react";
 
-import {
-  InlineCombobox,
-  InlineComboboxContent,
-  InlineComboboxEmpty,
-  InlineComboboxGroup,
-  InlineComboboxGroupLabel,
-  InlineComboboxInput,
-  InlineComboboxItem,
-} from "./inline-combobox";
 
 type Group = {
   group: string;
@@ -210,19 +202,17 @@ export function SlashInputElement(
 
   return (
     <PlateElement {...props} as="span">
-      <InlineCombobox element={element} trigger="/">
-        <InlineComboboxInput />
+      <Combobox element={element} trigger="/">
+        <ComboboxTrigger />
 
-        <InlineComboboxContent>
-          <InlineComboboxEmpty>No results</InlineComboboxEmpty>
-
+        <ComboboxContent>
           {groups.map(({ group, items }) => (
-            <InlineComboboxGroup key={group}>
-              <InlineComboboxGroupLabel>{group}</InlineComboboxGroupLabel>
+            <ComboboxItem key={group}>
+              <Combobox.GroupLabel>{group}</Combobox.GroupLabel>
 
               {items.map(
                 ({ focusEditor, icon, keywords, label, value, onSelect }) => (
-                  <InlineComboboxItem
+                  <ComboboxItem
                     key={value}
                     value={value}
                     onClick={() => onSelect(editor, value)}
@@ -233,13 +223,13 @@ export function SlashInputElement(
                   >
                     <div className="mr-2 text-neutral-500 dark:text-neutral-400">{icon}</div>
                     {label ?? value}
-                  </InlineComboboxItem>
+                  </ComboboxItem>
                 )
               )}
-            </InlineComboboxGroup>
+            </ComboboxItem>
           ))}
-        </InlineComboboxContent>
-      </InlineCombobox>
+        </ComboboxContent>
+      </Combobox>
 
       {props.children}
     </PlateElement>

@@ -8,10 +8,10 @@ import {
   type RichTextareaHandle,
 } from "rich-textarea";
 import { createPortal } from "react-dom";
-import { isAtBottomAtom, scrollToBottomSignal } from "./messages";
-import { Button } from "./ui/button";
-import { useModeSwitcher } from "./ModeProvider";
-import { useDualMode } from "./MainLayout";
+import { isAtBottomAtom, scrollToBottomSignal } from "../Messages/component";
+import { Button } from "../ui/button";
+import { useModeSwitcher } from "../ModeProvider/component";
+import { useDualMode } from "../MainLayout";
 
 // --------------------- Slash command constants ----------------------
 type CommandItem = { label: string; description: string };
@@ -322,16 +322,14 @@ export default function ChatBar({
 
   // Dynamic className based on conversation state
   const containerClassName = $conversationEmpty
-    ? "absolute inset-0 flex flex-col items-center justify-center px-4" // Middle positioning
-    : "absolute bottom-0 left-0 right-0 w-full p-2 flex flex-col items-center gap-2"; // Bottom positioning
+    ? "absolute inset-0 flex flex-col items-center justify-center px-4"
+    : "absolute bottom-0 left-0 right-0 bg-white from-opacity-0 to-opacity-100 w-full p-2 flex flex-col items-center gap-2";
 
   return (
 
     <motion.div
       layout
-      className={`${$conversationEmpty
-        ? "absolute inset-0 flex flex-col items-center justify-center px-4" // Middle positioning
-        : "absolute bottom-0 left-0 right-0 w-full p-2 flex flex-col items-center gap-2"}`}
+      className={containerClassName}
 
     >
       {/* Branding only in empty state */}
@@ -474,8 +472,8 @@ export default function ChatBar({
                 {/* Textarea */}
                 <RichTextarea
                   ref={richRef}
-                  className="resize-none outline-none font-medium drop-shadow-lg text-base p-2 focus:ring-0 flex-1 w-full"
-                  placeholder="Ask anything..."
+                  className="resize-none placeholder:text-gray-400 outline-none font-medium drop-shadow-lg text-base p-2 focus:ring-0 flex-1 w-full"
+                  placeholder="Type '/' for commands..."
                   value={cleanInput}
                   autoFocus
                   onChange={handleInputChangeWithChips}
@@ -582,12 +580,7 @@ export default function ChatBar({
                   <button
                     type="button"
                     onClick={() => {
-                      // Open citation mode in dual mode if not already in citation mode
-                      if (window.location.hash !== '#citation') {
-                        openDualModeWith('citation');
-                      } else {
-                        switchMode('citation');
-                      }
+                      openDualModeWith('citation');
                     }}
                     title="Open Citation Manager"
                     className="transition-colors"
@@ -669,9 +662,8 @@ export default function ChatBar({
       </div>
 
       {/* Privacy notice */}
-      <p className="text-xs text-gray-500 text-center max-w-2xl mt-2">
-        We can see all of your chat requests, we can do what we want with it.
-        Therefore, beware of the content you send like passwords or secrets.
+      <p className="text-xs text-gray-500 text-center max-w-2xl ">
+        Your chat requests/responses can be used for R/D
       </p>
     </motion.div>
 

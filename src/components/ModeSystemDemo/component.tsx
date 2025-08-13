@@ -1,7 +1,10 @@
 // Simple demo to test the unified mode system
 import React from 'react';
-import { ModeProvider, useMode, useModeSwitcher } from './ModeProvider';
-import { UniversalModeComponent, EntityListSidebar, StatusFooter } from './UniversalModeComponent';
+import type { ModeComponentProps, BaseEntity } from '@/util/modeDefinitions';
+import { UniversalModeComponent, EntityListSidebar, StatusFooter } from '../UniversalModeComponent/component';
+import { ModeProvider, useModeSwitcher } from '../ModeProvider/component';
+
+interface DemoComponentProps<T extends BaseEntity> extends ModeComponentProps<T> {}
 
 function ModeDemo() {
     const { currentMode, switchMode, availableModes } = useModeSwitcher();

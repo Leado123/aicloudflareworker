@@ -1,11 +1,13 @@
 import { ModeComponentProps, type Conversation } from "@/util/modeDefinitions";
-import { useEffect, useRef, useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useChat } from "@ai-sdk/react";
-import ChatBar from "./chatBar";
-import Messages from "./messages";
-import { ScrollArea } from "./ui/scroll-area";
+import ChatBar from "../ChatBar/component";
+import Messages from "../Messages/component";
+import { ScrollArea } from "../ui/scroll-area";
 import type { CoreMessage, Message } from "ai";
 import { generateEntityTitle, getModeByKey } from "@/util/modes";
+import { useMode } from "../ModeProvider/component";
+import { useStore } from "@nanostores/react";
 
 // Helper to prevent duplicate assistant messages
 function isDuplicateAssistantMessage(messages: Message[], newMessage: Message) {
@@ -28,6 +30,12 @@ export default function ChatMode({
   const messagesRef = useRef<Message[]>([]);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [isSearchEnabled, setIsSearchEnabled] = useState<boolean>(false);
+  const addCitationsToConversation = (entries: any[]) => {
+    if (!currentConversation) return;
+    const existing = Array.isArray((currentConversation as any).citations) ? (currentConversation as any).citations : [];
+    const merged = [...existing, ...entries];
+    updateConversation(currentConversation.id, { citations: merged } as any);
+  };
 
   const {
     messages,
@@ -150,6 +158,14 @@ export default function ChatMode({
     }
   }, [currentConversation, setMessages]); // Changed from currentConversation?.id to currentConversation
 
+  // Create a starter conversation when landing with empty storage
+  useEffect(() => {
+    if (!currentConversation && messagesRef.current.length === 0) {
+      const id = createConversation({ title: 'New Chat', messages: [] } as any);
+      setCurrentConversation(id);
+    }
+  }, [currentConversation, createConversation, setCurrentConversation]);
+
   // This handler is for when the user clicks a suggested prompt.
   const handleSuggestedPrompt = (prompt: string) => {
     append({ role: "user", content: prompt });
@@ -160,30 +176,56 @@ export default function ChatMode({
     setMessages([]);
   };
 
-  // The conversation view should be shown if a conversation is loaded,
-  // or if a new chat is actively in progress (indicated by isLoading or
-  // the presence of messages in the hook's state).
-  const showConversation =
-    !conversationEmpty || isLoading || messages.length > 0;
+  // Always render the conversation area so the layout is visible even when empty.
+  const showConversation = true;
+  const isChatBarCentered = conversationEmpty && !isLoading && messages.length === 0;
 
   return (
-    <div className="w-full h-full flex-1 flex">
-      <div className="w-full h-full flex-1 relative">
-        {showConversation && (
+    <div className="w-full h-full flex-1 flex min-w-0 min-h-0">
+      <div className="w-full h-full flex-1 min-w-0 min-h-0 flex flex-col relative">
+        <div className="flex-1 min-h-0">
           <ScrollArea className="w-full h-full">
             <Messages
               messages={messages}
               submitMessage={handleSuggestedPrompt}
               isLoading={isLoading}
+              onSaveCitationsToChat={addCitationsToConversation}
             />
           </ScrollArea>
+        </div>
+        {/* Citations under chat */}
+        {currentConversation && (currentConversation as any).citations?.length > 0 && (
+          <div className="px-4 pb-2">
+            <div className="max-w-4xl mx-auto bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+              <div className="text-sm font-medium text-emerald-900 mb-2">Citations in this chat</div>
+              <div className="flex gap-2 flex-wrap">
+                {(currentConversation as any).citations.slice(-6).map((c: any, i: number) => (
+                  <span key={i} className="text-xs bg-white border border-emerald-200 rounded px-2 py-1">
+                    {c.title}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
         )}
         <ChatBar
           currentConversation={currentConversation}
-          conversationEmpty={!showConversation} // true if not showing conversation (centered), false if showing (bottom)
-          createConversation={createConversation}
+          conversationEmpty={isChatBarCentered}
+          createConversation={(data) => {
+            // Ensure a conversation exists when user clicks new or starts typing on empty state
+            const id = createConversation({ title: data?.title || 'New Chat', messages: [] } as any);
+            setCurrentConversation(id);
+            return id;
+          }}
           input={input}
-          handleInputChange={handleInputChange}
+          handleInputChange={(e) => {
+            // If there is no conversation yet and user begins typing, create one immediately
+            if (!currentConversation && messagesRef.current.length === 0) {
+              const id = createConversation({ title: 'New Chat', messages: [] } as any);
+              setCurrentConversation(id);
+            }
+            handleInputChange(e);
+          }}
           submitMessage={handleSubmit}
           clearMessages={clearMessages}
           setCurrentConversation={setCurrentConversation}

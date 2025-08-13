@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import GradientText from "@/components/reactbits/GradientText/GradientText";
+import GradientText from "@/components/GradientText/component";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Card,

@@ -8,8 +8,8 @@ import {
     createModeStores, 
     createStorageManager,
     ModeComponentProps 
-} from '../util/modeDefinitions';
-import { allModes, type ModeKey } from '../util/modes';
+} from '@/util/modeDefinitions';
+import { allModes, type ModeKey } from '@/util/modes';
 
 // Global mode state
 export const currentMode = atom<ModeKey>('chat');

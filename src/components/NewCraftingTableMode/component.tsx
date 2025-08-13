@@ -1,15 +1,15 @@
 // Updated Crafting Table Mode using unified system and markdown.tsx
-import React, { useState, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { LucideCopy, LucideNotebookPen, LucideThumbsDown, LucideThumbsUp, LucideWalletCards, X } from "lucide-react";
-import { FileDropZone } from "./ui/filedrop";
-import { Card, CardContent } from "./ui/card";
-import { Button } from "./ui/button";
-import DefaultMarkdown from './markdown';
-import { Separator } from "./ui/separator";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
-import { Textarea } from "./ui/textarea";
-import { ModeComponentProps, type CraftingBench, type FlashCard } from "../util/modeDefinitions";
-import { fileToStoredData } from "../util/modeDefinitions";
+import { FileDropZone } from "../ui/filedrop";
+import { Card, CardContent } from "../ui/card";
+import { Button } from "../ui/button";
+import DefaultMarkdown from "../Markdown/component";
+import { Separator } from "../ui/separator";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "../ui/tabs";
+import { Textarea } from "../ui/textarea";
+import { type ModeComponentProps, type CraftingBench, type FlashCard } from "@/util/modeDefinitions";
+import { fileToStoredData } from "@/util/modeDefinitions";
 
 export const CRAFTING_OPTIONS = {
     NOTES: "notes",

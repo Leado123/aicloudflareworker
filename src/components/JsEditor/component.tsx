@@ -1,6 +1,6 @@
 import React, { memo, useEffect, useRef } from 'react';
 import EditorJS from '@editorjs/editorjs';
-import { EDITOR_JS_TOOLS } from './Tool';
+import { EDITOR_JS_TOOLS } from '../Tool/component';
 
 interface EditorProps {
     data: EditorJS.OutputData;

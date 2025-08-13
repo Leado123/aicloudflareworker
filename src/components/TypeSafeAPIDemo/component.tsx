@@ -1,12 +1,12 @@
 // Demonstration component showing how to use the type-safe mode API system
 import React, { useState } from 'react';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Textarea } from './ui/textarea';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { useModeAPI, ModeAPIError } from '../util/modeAPIClient';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Label } from './ui/label';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { Textarea } from '../ui/textarea';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { useModeAPI, ModeAPIError } from '@/util/modeAPIClient';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { Label } from '../ui/label';
 
 export default function TypeSafeAPIDemo() {
     const modeAPI = useModeAPI();

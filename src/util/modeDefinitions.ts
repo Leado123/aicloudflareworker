@@ -15,6 +15,7 @@ export interface BaseEntity {
 // Core data types
 export interface Conversation extends BaseEntity {
     messages: CoreMessage[];
+    citations: CitationEntry[];
 }
 
 export interface CitationEntry {

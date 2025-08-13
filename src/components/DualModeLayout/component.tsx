@@ -1,19 +1,22 @@
 import { useState, useEffect, useRef } from "react";
-import { useModeSwitcher, useModeEntities } from "./ModeProvider";
+import { useModeSwitcher, useModeEntities } from "../ModeProvider/component";
+import { Button } from "../ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { allModes, type ModeKey } from "@/util/modes";
-import { Button } from "./ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
-import { LucideX, LucideChevronRight, LucideMessageCircle, LucideSparkles, LucidePencilRuler, LucideCalculator, LucideBookOpen, LucideGripVertical } from "lucide-react";
-import Content from "./content";
+import { useStore } from "@nanostores/react";
+import Content from "../Content/component";
 import type { BibifySearchResult } from "@/util/bibifyClient";
+import { LucideX, LucideChevronRight, LucideMessageCircle, LucideSparkles, LucidePencilRuler, LucideCalculator, LucideBookOpen, LucideGripVertical } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface DualModeLayoutProps {
   onCloseDualMode: () => void;
   initialRightMode?: ModeKey | null;
   citationResults?: { results: BibifySearchResult[]; query: string } | null;
+  isActive?: boolean;
 }
 
-export default function DualModeLayout({ onCloseDualMode, initialRightMode, citationResults }: DualModeLayoutProps) {
+export default function DualModeLayout({ onCloseDualMode, initialRightMode, citationResults, isActive = false }: DualModeLayoutProps) {
   // Fix: Change variable name to avoid conflict
   const { currentMode: leftMode } = useModeSwitcher();
   const [selectedRightMode, setSelectedRightMode] = useState<ModeKey>(initialRightMode || 'write');
@@ -107,13 +110,12 @@ export default function DualModeLayout({ onCloseDualMode, initialRightMode, cita
   };
 
   return (
-    <div ref={containerRef} className="w-full h-full flex gap-2">
+    <div ref={containerRef} className={`w-full h-full min-h-0 flex ${isActive ? 'gap-2' : 'gap-0'}`}>
       {/* Left side - Current mode */}
       <div 
-        className="bg-white rounded-lg border border-gray-200 flex flex-col shadow-sm"
-        style={{ width: `${leftWidth}%` }}
+        className="bg-white rounded-lg border border-gray-200 flex flex-col shadow-sm min-w-0 min-h-0 h-full flex-1"
       >
-        <div className="bg-gradient-to-r from-blue-50 to-blue-100 px-4 py-2 border-b border-blue-200 rounded-t-lg flex items-center justify-between">
+        <div className="bg-gradient-to-r from-blue-50 to-blue-100 px-4 py-2 border-b border-blue-200 rounded-t-lg flex items-center justify-between flex-none">
           <div className="flex items-center gap-3">
             <div className="p-1.5 bg-blue-500 rounded-md">
               {(() => {
@@ -128,38 +130,42 @@ export default function DualModeLayout({ onCloseDualMode, initialRightMode, cita
               <p className="text-xs text-blue-600">Primary workspace</p>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onCloseDualMode}
-            className="text-blue-700 hover:text-blue-900 hover:bg-blue-200 h-8 px-3"
-          >
-            <LucideX className="w-4 h-4 mr-1" />
-            <span className="text-xs">Exit Dual Mode</span>
-          </Button>
+          {isActive && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onCloseDualMode}
+              className="text-blue-700 hover:text-blue-900 hover:bg-blue-200 h-8 px-3"
+            >
+              <LucideX className="w-4 h-4 mr-1" />
+              <span className="text-xs">Exit Dual Mode</span>
+            </Button>
+          )}
         </div>
-        <div className="flex-1 rounded-b-lg overflow-hidden">
+        <div className="flex-1 min-h-0 rounded-b-lg overflow-hidden">
           <Content />
         </div>
       </div>
 
       {/* Resizable divider */}
       <div
-        className={`w-2 flex items-center justify-center cursor-col-resize group hover:bg-gray-300 transition-all ${
+        className={`${"w-2"} h-full flex items-center justify-center cursor-col-resize group hover:bg-gray-300 transition-all ${
           isDragging ? 'bg-gray-400 shadow-md' : 'bg-gray-200'
         } rounded-md`}
-        onMouseDown={handleMouseDown}
+        onMouseDown={isActive ? handleMouseDown : undefined}
+        style={{ opacity: isActive ? 1 : 0, pointerEvents: isActive ? 'auto' : 'none' }}
       >
         <LucideGripVertical className="w-4 h-4 text-gray-500 group-hover:text-gray-700" />
       </div>
 
-      {/* Right side - Mode selection or selected mode */}
-      <div 
-        className="bg-white rounded-lg border border-gray-200 flex flex-col shadow-sm"
-        style={{ width: `${100 - leftWidth - 1}%` }} // Subtract 1% for divider space
+      {/* Right side - Always mounted, animated visibility */}
+      <motion.div 
+        className="bg-white rounded-lg border border-gray-200 flex flex-col shadow-sm min-w-0 min-h-0 h-full overflow-hidden"
+        initial={{ width: 0, opacity: 0 }}
+        animate={{ width: isActive && selectedRightMode ? `calc(${100 - leftWidth}% - 0.5rem)` : '0%', opacity: isActive && selectedRightMode ? 1 : 0 }}
+        transition={{ type: 'spring', stiffness: 340, damping: 32 }}
       >
         {selectedRightMode && RightModeComponent && rightModeProps ? (
-          // Show selected mode
           <>
             <div className="bg-gradient-to-r from-emerald-50 to-emerald-100 px-4 py-2 border-b border-emerald-200 rounded-t-lg">
               <div className="flex items-center gap-3">
@@ -179,17 +185,21 @@ export default function DualModeLayout({ onCloseDualMode, initialRightMode, cita
             </div>
             <div className="flex-1 rounded-b-lg overflow-hidden">
               {selectedRightMode === 'citation' ? (
-                <RightModeComponent 
-                  {...rightModeProps} 
-                  preloadedResults={citationResults}
-                />
+                (() => {
+                  const CitationComponent = RightModeComponent as any;
+                  return (
+                    <CitationComponent
+                      {...rightModeProps}
+                      preloadedResults={citationResults}
+                    />
+                  );
+                })()
               ) : (
                 <RightModeComponent {...rightModeProps} />
               )}
             </div>
           </>
         ) : (
-          // Show mode selection panel
           <div className="h-full p-6 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg">
             <div className="max-w-md mx-auto">
               <div className="text-center mb-6">
@@ -201,10 +211,9 @@ export default function DualModeLayout({ onCloseDualMode, initialRightMode, cita
                   Select a mode to display alongside your current {allModes[leftMode].displayName.toLowerCase()} session
                 </p>
               </div>
-              
               <div className="space-y-2">
                 {Object.entries(allModes)
-                  .filter(([key]) => key !== leftMode) // Don't show current mode
+                  .filter(([key]) => key !== leftMode)
                   .map(([key, mode]) => (
                     <Card 
                       key={key}
@@ -234,7 +243,6 @@ export default function DualModeLayout({ onCloseDualMode, initialRightMode, cita
                     </Card>
                   ))}
               </div>
-
               <div className="mt-6 text-center">
                 <Button
                   variant="outline"
@@ -248,7 +256,7 @@ export default function DualModeLayout({ onCloseDualMode, initialRightMode, cita
             </div>
           </div>
         )}
-      </div>
+      </motion.div>
     </div>
   );
 } 

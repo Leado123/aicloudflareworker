@@ -10,11 +10,12 @@ import {
   storedDataToFile,
   type StoredFileData,
 } from "./modeDefinitions";
-import ChatMode from "../components/chatMode";
-import CraftingTableMode from "../components/newCraftingTableMode";
-import WritingMode from "../components/writingMode";
-import CalculatorMode from "../components/CalcMode";
-import CitationMode from "../components/citationMode";
+import ChatMode from "../components/ChatMode/component";
+import CraftingTableMode from "../components/NewCraftingTableMode/component";
+import WritingMode from "../components/WritingMode/component";
+import SpanishMode from "../components/Spanish/component";
+import CalculatorMode from "../components/CalcMode/component";
+import CitationMode from "../components/CitationMode/component";
 import {
   deleteConversation,
   setCurrentConversation,
@@ -40,12 +41,14 @@ export const chatMode: ModeDefinition<Conversation> = {
   defaultEntity: () => ({
     title: "New Chat",
     messages: [],
+    citations: [],
   }),
 
   serialize: (conversation: Conversation) => ({
     id: conversation.id,
     title: conversation.title,
     messages: conversation.messages,
+    citations: conversation.citations || [],
     createdAt: conversation.createdAt?.toISOString(),
     updatedAt: conversation.updatedAt?.toISOString(),
   }),
@@ -54,12 +57,13 @@ export const chatMode: ModeDefinition<Conversation> = {
     id: data.id,
     title: data.title,
     messages: data.messages || [],
+    citations: data.citations || [],
     createdAt: data.createdAt ? new Date(data.createdAt) : undefined,
     updatedAt: data.updatedAt ? new Date(data.updatedAt) : undefined,
   }),
 
   isEmpty: (conversation: Conversation) =>
-    !conversation || conversation.messages.length === 0,
+    !conversation || (conversation.messages.length === 0 && (conversation.citations?.length ?? 0) === 0),
 
   // Define API actions available for this mode
   apiActions: {

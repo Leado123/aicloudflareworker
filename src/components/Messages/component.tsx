@@ -2,14 +2,14 @@ import { type Conversation } from "@/util/modeDefinitions";
 import { atom } from "nanostores";
 import { useStore } from "@nanostores/react";
 import { useEffect, useRef, useState } from "react";
-import Markdown from "./markdown";
-import { Button } from "./ui/button";
+import Markdown from "../Markdown/component";
+import { Button } from "../ui/button";
 import { LucideThumbsDown, LucideThumbsUp } from "lucide-react";
-import { AIResponse } from "./ui/kibo-ui/ai/response";
+import { AIResponse } from "../ui/kibo-ui/ai/response";
 import { motion, LayoutGroup } from "framer-motion";
 import type { CoreMessage, UIMessage } from "ai";
-import { useModeSwitcher } from "./ModeProvider";
-import { useDualMode } from "./MainLayout";
+import { useModeSwitcher } from "../ModeProvider/component";
+import { useDualMode } from "../MainLayout";
 
 // Type guards to check for different content formats
 function hasResponse(obj: any): obj is { response: string } {
@@ -36,6 +36,7 @@ export const scrollToBottomSignal = atom<number>(0);
 interface MessagesProps {
   submitMessage: (message: string) => void;
   messages: UIMessage[];
+  onSaveCitationsToChat?: (entries: any[]) => void;
 }
 
 // ---------------------------------------------
@@ -115,7 +116,7 @@ function CitationFormatter({ citation }: CitationFormatterProps) {
 // End citation formatter additions
 // ---------------------------------------------
 
-export default function Messages({ submitMessage, messages }: MessagesProps) {
+export default function Messages({ submitMessage, messages, onSaveCitationsToChat }: MessagesProps) {
   const $scrollToBottomSignal = useStore(scrollToBottomSignal);
   const [isItStreaming, setIsItStreaming] = useState<boolean | null>(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -123,7 +124,8 @@ export default function Messages({ submitMessage, messages }: MessagesProps) {
   const prevMessagesLengthRef = useRef<number>(messages.length);
   const [isAtBottomState, setIsAtBottomState] = useState(true);
   const { switchMode } = useModeSwitcher();
-  const { isDualMode, setIsDualMode, openDualModeWith, openCitationModeWithResults } = useDualMode();
+  const { isDualMode, openDualModeWith, openCitationModeWithResults } = useDualMode() as any;
+  const lastOpenTsRef = useRef<number>(0);
 
   // Manual scroll detection instead of intersection observer
   useEffect(() => {
@@ -238,21 +240,7 @@ export default function Messages({ submitMessage, messages }: MessagesProps) {
       setIsItStreaming(
         typeof isLastAssistantMessage === 'undefined' ? null : Boolean(isLastAssistantMessage)
       );
-
-      if (isLastAssistantMessage) {
-        // Force scroll to bottom when streaming starts
-        setTimeout(() => {
-          const scrollAreaViewport = document.querySelector(
-            "[data-radix-scroll-area-viewport]"
-          );
-          if (scrollAreaViewport) {
-            scrollAreaViewport.scrollTo({
-              top: scrollAreaViewport.scrollHeight,
-              behavior: "smooth",
-            });
-          }
-        }, 50);
-      }
+      // Do not auto-scroll on streaming; user controls scroll
     }
   }, [messages]);
 
@@ -470,7 +458,12 @@ export default function Messages({ submitMessage, messages }: MessagesProps) {
                   </div>
                   <span className="font-medium text-emerald-900">Citation Search Results</span>
                   <button
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const now = Date.now();
+                      if (now - lastOpenTsRef.current < 400) return; // throttle rapid clicks
+                      lastOpenTsRef.current = now;
                       // Convert AI tool citations to BibifySearchResult format and pass to citation mode
                       const bibifyResults = citations.map((citation: any) => ({
                         id: citation.bibify_id || citation.id || crypto.randomUUID(),
@@ -492,7 +485,23 @@ export default function Messages({ submitMessage, messages }: MessagesProps) {
                       }));
                       
                       console.log("Opening citation mode with results:", bibifyResults);
-                      openCitationModeWithResults(bibifyResults, searchQuery);
+                      // Save to current chat if handler provided
+                      if (onSaveCitationsToChat) {
+                        onSaveCitationsToChat(bibifyResults.map((r: any) => ({
+                          id: r.id,
+                          title: r.title,
+                          authors: Array.isArray(r.authors) ? r.authors : [r.authors],
+                          year: r.date ? parseInt(String(r.date).split('-')[0]) : undefined,
+                          type: r.type,
+                          publisher: r.publisher,
+                          addedAt: new Date(),
+                        })));
+                      }
+                      // Open the dual panel with citation mode, then inject preloaded results
+                      openDualModeWith('citation');
+                      setTimeout(() => {
+                        openCitationModeWithResults(bibifyResults, searchQuery);
+                      }, 60);
                     }}
                     className="ml-auto text-xs bg-emerald-600 text-white px-2 py-1 rounded hover:bg-emerald-700 transition-colors"
                   >
@@ -509,11 +518,11 @@ export default function Messages({ submitMessage, messages }: MessagesProps) {
                   Citation search failed: {citationError}
                 </div>
               ) : citationSuccess && citations.length > 0 ? (
-                <div className="space-y-3">
+                <div className="space-y-3 max-h-56 overflow-y-auto pr-1">
                   {citations.map((citation: any, citationIndex: number) => (
                     <motion.div
                       key={citationIndex}
-                      className="bg-white border border-emerald-200 rounded-md p-3"
+                      className="bg-white border border-emerald-200 rounded-lg p-3 hover:bg-gray-50 transition-colors"
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{
@@ -524,20 +533,23 @@ export default function Messages({ submitMessage, messages }: MessagesProps) {
                     >
                       <div className="flex items-start gap-3">
                         {citation.coverUrl && (
-                          <img 
-                            src={citation.coverUrl} 
-                            alt="Cover" 
-                            className="w-8 h-10 object-cover rounded"
-                          />
+                          <div className="flex-shrink-0">
+                            <img 
+                              src={citation.coverUrl} 
+                              alt="Cover" 
+                              className="w-10 h-14 object-cover rounded shadow-sm"
+                              onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
+                            />
+                          </div>
                         )}
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                           <h4 className="font-medium text-gray-900 mb-1">
                             {citation.title}
                           </h4>
                           <p className="text-sm text-gray-600 mb-2">
                             by {citation.authors}
                           </p>
-                          <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+                          <div className="flex items-center gap-2 text-xs text-gray-500 mb-2 flex-wrap">
                             {citation.year && (
                               <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">
                                 {citation.year}
@@ -576,22 +588,6 @@ export default function Messages({ submitMessage, messages }: MessagesProps) {
                             <p className="text-xs text-gray-600 line-clamp-2">
                               {citation.abstract}
                             </p>
-                          )}
-                          {citation.bibify_id && (
-                            <div className="flex items-center justify-between mt-2">
-                              <span className="text-xs text-gray-500 font-mono">
-                                ID: {citation.bibify_id}
-                              </span>
-                              <button
-                                onClick={() => {
-                                  // Get detailed citation info
-                                  console.log("Get details for", citation.bibify_id);
-                                }}
-                                className="text-xs text-emerald-600 hover:text-emerald-800 hover:underline"
-                              >
-                                View Details
-                              </button>
-                            </div>
                           )}
                         </div>
                       </div>
@@ -637,10 +633,10 @@ export default function Messages({ submitMessage, messages }: MessagesProps) {
   return (
     <div
       ref={scrollAreaRef}
-      className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4 place-items-center w-full"
+      className="flex-1 overflow-y-auto overflow-x-hidden p-4 pb-36 space-y-4 w-full min-w-0"
       data-messages-container="true"
     >
-      <div className="w-full max-w-4xl mx-auto">
+      <div className="w-full mx-auto max-w-full md:max-w-4xl">
         <LayoutGroup>
           {messages.map((message, index) => {
             const isLastAssistantMessage =
@@ -685,7 +681,7 @@ export default function Messages({ submitMessage, messages }: MessagesProps) {
                         </span>
                       </div>
                     ) : message.role === "assistant" ? (
-                      <div className="flex flex-col w-3.5xl">
+                      <div className="flex flex-col max-w-full">
                         {message.content && (
                           <AIResponse className="no-markdown-margin">{message.content}</AIResponse>
                         )}
@@ -726,7 +722,7 @@ export default function Messages({ submitMessage, messages }: MessagesProps) {
 
           {/* Spacer for scroll area */}
           <motion.div
-            className={`${isItStreaming ? "h-4/5" : "h-35"}`}
+            className={`${isItStreaming ? "h-24" : "h-12"}`}
           ></motion.div>
         </LayoutGroup>
       </div>
